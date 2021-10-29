@@ -1,0 +1,6 @@
+[package]
+description = "ML-like Lambda Calculus Parser"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+name = "m3lc"
+version = "0.1.0"
