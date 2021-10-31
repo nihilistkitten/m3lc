@@ -4,6 +4,71 @@ use std::cell::RefCell;
 use crate::grammar::Term;
 
 impl Term {
+    /// Perform normal-order beta reduction.
+    ///
+    /// # Safety
+    /// The halting problem is a thing. Ergo, this can cause unhandled infinite regress.
+    pub fn reduce(self) -> Self {
+        match self {
+            // Vars are irreducible.
+            Self::Var(_) => self,
+
+            //           t ~~> t'
+            // ----------------------------
+            // (fn x => t) ~~> (fn x => t')
+            Self::Lam { param, rule } => Self::Lam {
+                param,
+                rule: rule.reduce().into(),
+            },
+
+            // Handle appl.
+            Self::Appl { left, right } => {
+                if let Self::Lam { param, rule } = *left {
+                    // -------------------------
+                    // (fn x => t) s ~~> [s/x] t
+                    rule.subst(&param, *right).reduce()
+                } else if left.is_irreducible() {
+                    // Only reduce the right if the left is already reduced.
+                    //
+                    // t1 irr    t2 ~~> t2'
+                    // ----------------------
+                    //  (t1 t2) ~~> (t1 t2')
+                    //
+                    // We need a special case for the left being irreducible, instead of just
+                    // reducing on the left, then outside (in case a lambda was created), then the
+                    // right, because after reducing an outer lambda created by reducing on the
+                    // left, we could need to again reduce on the left, because that outer
+                    // reduction could have created and reducible left side.
+                    Self::Appl {
+                        left,
+                        right: right.reduce().into(),
+                    }
+                } else {
+                    // Note that here left is not a Var, because it's reducible, and not a Lam,
+                    // because that was checked earlier. Therefore left is (t1 t2) and reducible,
+                    // and so one of two rules applies:
+                    //
+                    //          t1 ~~> t1'
+                    // ------------------------------
+                    // ((t1 t2) t3) ~~> ((t1' t2) t3)
+                    //
+                    //     t1 irr      t2 ~~> t2'
+                    // ------------------------------
+                    // ((t1 t2) t3) ~~> ((t1 t2') t3)
+                    //
+                    // Either way, we can implement the reduction by recurring to the left.
+                    Self::Appl {
+                        left: left.reduce().into(),
+                        right,
+                    }
+                    // It's important to reduce the whole thing again, in case the reduction turned
+                    // left into a lambda.
+                    .reduce()
+                }
+            }
+        }
+    }
+
     /// Check whether the term is beta-reducible.
     fn is_irreducible(&self) -> bool {
         match self {
@@ -28,6 +93,7 @@ impl Term {
                     left.is_irreducible() && right.is_irreducible()
                 }
             }
+
             //      t irr
             // ---------------
             // (fn x => t) irr
@@ -35,75 +101,52 @@ impl Term {
         }
     }
 
-    /// Perform normal-order beta reduction.
-    pub fn reduce(mut self) -> Term {
+    /// Perform substitution of `replace` for `with` in `self`.
+    fn subst(self, replace: &str, with: Self) -> Self {
         match self {
-            Self::Lam { param, rule } => Self::Lam {
-                //           t ~~> t'
-                // ----------------------------
-                // (fn x => t) ~~> (fn x => t')
-                param,
-                rule: rule.reduce().into(),
-            },
-            Self::Appl { left, right } => {
-                if let Self::Lam { param, rule } = *left {
-                    // -------------------------
-                    // (fn x => t) s ~~> [s/x] t
-                    rule.subst(&param, *right).reduce()
-                } else if left.is_irreducible() {
-                    // Only reduce the right if the left is already reduced.
-                    //
-                    // t1 irr    t2 ~~> t2'
-                    // ----------------------
-                    //  (t1 t2) ~~> (t1 t2')
-                    Self::Appl {
-                        left,
-                        right: right.reduce().into(),
-                    }
-                } else {
-                    // Note that here left is not a Var, because it's reducible, and not a Lam,
-                    // because that was checked earlier. Therefore left is (t1 t2) and reducible,
-                    // and so one of two rules applies:
-                    //
-                    //          t1 ~~> t1'
-                    // ------------------------------
-                    // ((t1 t2) t3) ~~> ((t1' t2) t3)
-                    //
-                    //     t1 irr      t2 ~~> t2'
-                    // ------------------------------
-                    // ((t1 t2) t3) ~~> ((t1 t2') t3)
-                    //
-                    // Either way, we can implement the reduction by recurring to the left.
-                    Self::Appl {
-                        left: left.reduce().into(),
-                        right,
-                    }
-                    // It's important to reduce the whole thing again, in case the recursion turned
-                    // left into a lambda.
-                    .reduce()
+            // [s/x] x := s
+            Self::Var(ref s) if s == replace => with,
+
+            // [s/x] y := y
+            Self::Var(_) => self,
+
+            // [s/x] (fn x => t) := (fn x => t)
+            Self::Lam { ref param, .. } if param == replace => self,
+
+            // [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
+            Self::Lam { param, rule } => {
+                let new_var = get_fresh(&param);
+                Self::Lam {
+                    param: new_var.clone(), // we need new_var for the param and the recursive subst
+                    rule: rule
+                        .subst(&param, new_var.into())
+                        .subst(replace, with)
+                        .into(),
                 }
             }
 
-            // Vars are irreducible.
-            Self::Var(_) => self,
+            // [s/x] (t1 t2) := ([s/x] t1) ([s/x] t2)
+            Self::Appl { left, right } => Self::Appl {
+                left: left.subst(replace, with.clone()).into(),
+                right: right.subst(replace, with).into(),
+            },
         }
     }
 
     /// Check term equivalence under alpha-renaming.
-    ///
-    /// The idea is to maintain a context which stores the existing lambda abstractions, _in
-    /// order_. This context essentially associates variables from each term. We can therefore use
-    /// this to check equivalence whenever we see a `Var`.
-    ///
-    /// We don't want to use `subst` here because a big motivation for implementing this function
-    /// is to enable testing `subst` without relying on implementation details of `get_fresh`.
     fn alpha_equiv(&self, other: &Self) -> bool {
         self.alpha_equiv_impl(other, &mut vec![])
     }
 
     fn alpha_equiv_impl<'a>(&'a self, other: &'a Self, ctx: &mut Vec<(&'a str, &'a str)>) -> bool {
+        // The idea is to maintain a context which stores the existing lambda abstractions, _in
+        // order_. This context essentially associates variables from each term. We can therefore use
+        // this to check equivalence whenever we see a `Var`.
+        //
+        // We don't want to use `subst` here because a big motivation for implementing this function
+        // is to enable testing `subst` without relying on implementation details of `get_fresh`.
         match (self, other) {
-            // handling var: if x and y are bound in the same lambda, return true
+            // handling var: if x and y are most recently bound in the same lambda, return true
             (Self::Var(x), Self::Var(y)) => {
                 x == y
                     || ctx
@@ -154,53 +197,16 @@ impl Term {
             _ => false,
         }
     }
-
-    /// Perform substitution of `replace` for `with` in `self`.
-    fn subst(self, replace: &str, with: Self) -> Self {
-        match self {
-            Self::Var(ref s) => {
-                if s == replace {
-                    // [s/x] x := s
-                    with
-                } else {
-                    // [s/x] y := y
-                    self
-                }
-            }
-            Self::Lam { param, rule } => {
-                if param == replace {
-                    // [s/x] (fn x => t) := (fn x => t)
-                    // can't use "self" here because we move `rule` for handling the else case
-                    Self::Lam { param, rule }
-                } else {
-                    // [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
-                    let new_var = get_fresh(&param);
-                    Self::Lam {
-                        param: new_var.clone(), // we need to clone the String that get_fresh gives us
-                        rule: rule
-                            .subst(&param, new_var.into())
-                            .subst(replace, with)
-                            .into(),
-                    }
-                }
-            }
-            Self::Appl { left, right } => Self::Appl {
-                // [s/x] (t1 t2) := ([s/x] t1) ([s/x] t2)
-                left: left.subst(replace, with.clone()).into(),
-                right: right.subst(replace, with).into(),
-            },
-        }
-    }
 }
 
 // global mutable state shouldn't be shared across threads (and so rust needs us to do this)
 thread_local!(static COUNTER: RefCell<usize> = 0.into());
 
 /// Generate a fresh variable name.
-///
-/// The grammar forbids variable names containing "." and the global counter ensures that specific
-/// name hasn't been generated yet.
 fn get_fresh(s: &str) -> String {
+    // The grammar forbids variable names containing ".", so this name can't have been written by
+    // the user, and the global counter ensures that specific name hasn't been generated yet by
+    // this method, which is the only way new names get added to the AST.
     COUNTER.with(|c| {
         *c.borrow_mut() += 1;
         s.to_string() + "." + &c.borrow().to_string()
@@ -210,11 +216,17 @@ fn get_fresh(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use Term::{Appl, Lam, Var};
 
     mod reduction {
         use super::*;
         use crate::{to_term, ParserResult};
-        use Term::{Appl, Lam};
+
+        #[test]
+        /// Test reducing a var.
+        fn var() {
+            assert_eq!(Var("x".into()).reduce(), "x".into());
+        }
 
         #[test]
         /// Test a simple lambda application, (fn x => x) z.
@@ -284,14 +296,13 @@ mod tests {
 
         beta_reduction_tests! {
             nested_sub: "(fn f => fn a => f) x", "fn a => x"
-            order_matters: "(fn f => fn x => f (f x)) (fn q => r) a b", "r b"
+            order_matters: "(fn f => fn a => f (f a)) (fn q => r) a b", "r b"
             many_renames: "(fn f => fn y => fn x => x (y f)) y x f", "f (x y)"
         }
     }
 
     mod is_irreducible {
         use super::*;
-        use Term::{Appl, Lam, Var};
 
         #[test]
         fn var() {
@@ -394,8 +405,7 @@ mod tests {
 
     mod alpha_equiv {
         use super::*;
-        use Term::{Appl, Lam};
-        // takes a name, two asts, and a bool
+
         #[test]
         fn identical() {
             assert!(Lam {
@@ -496,7 +506,6 @@ mod tests {
 
     mod subst {
         use super::*;
-        use Term::{Appl, Lam};
 
         #[test]
         fn shadowing() {
