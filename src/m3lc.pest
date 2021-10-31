@@ -1,4 +1,4 @@
-file = { SOI ~ defn* ~ main ~ EOI }
+file = { SOI ~ defns ~ main ~ EOI }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT    = _{ "#" ~ ANY* ~ NEWLINE }
@@ -18,5 +18,6 @@ term = { lam | var | "(" ~ appl ~ ")" }
 var = { ident } // we don't just use `ident` here so that `lam` doesnt' need an extra `Box`.
 lam = { "fn" ~ ident ~ "=>" ~ appl }
 
-defn = { ident ~ ":=" ~ appl ~ ";" }
-main = { "main :=" ~ appl ~ ";" }
+defn = { ident ~ ":=" ~ appl }
+defns = { (defn ~ ";")* }
+main = { "main :=" ~ appl ~ ";" | appl }

@@ -1,5 +1,5 @@
 //! Parse a .m3lc file.
-use crate::grammar::{ Term};
+use crate::grammar::{Defn, File, Term};
 use Term::{Appl, Lam};
 
 use pest::prec_climber as pcl;
@@ -15,7 +15,7 @@ pub type ParserResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'a> = pest_consume::Node<'a, Rule, ()>;
 
 lazy_static::lazy_static! {
-    /// A precedence climber. Pest_consume's macros handle the actual work.
+    /// A precedence climber to impl associativity. pest_consume's macros handle most of the work.
     static ref CLIMBER: pcl::PrecClimber<Rule> = pcl::PrecClimber::new(
         vec![
             pcl::Operator::new(Rule::juxa, pcl::Assoc::Left),
@@ -82,12 +82,44 @@ impl M3LCParser {
             [var(x)] => x
         ))
     }
+
+    /// Parse a defn to a `Defn`.
+    fn defn(input: Node) -> ParserResult<Defn> {
+        Ok(match_nodes!(input.into_children();
+            [ident(name), appl(term)] => Defn::new(name, term)
+        ))
+    }
+
+    /// Parse a defns into a `Vec<Defn>`.
+    fn defns(input: Node) -> ParserResult<Vec<Defn>> {
+        Ok(match_nodes!(input.into_children();
+            [defn(defns)..] => defns.collect()
+        ))
+    }
+
+    /// Parse a main to its `Term`.
+    fn main(input: Node) -> ParserResult<Term> {
+        Ok(match_nodes!(input.into_children();
+            [appl(a)] => a
+        ))
+    }
+
+    /// Parse a file to a `File`.
+    fn file(input: Node) -> ParserResult<File> {
+        Ok(match_nodes!(input.into_children();
+            [defns(defns), main(main), EOI(_)] => File::new(defns, main)
+        ))
+    }
 }
 
 /// Parse a str to a term.
 pub fn to_term(input: &str) -> ParserResult<Term> {
-    let t = M3LCParser::parse(Rule::appl, input)?.single()?;
-    M3LCParser::appl(t)
+    M3LCParser::appl(M3LCParser::parse(Rule::appl, input)?.single()?)
+}
+
+/// Parse a str to a file.
+pub fn to_file(input: &str) -> ParserResult<File> {
+    M3LCParser::file(M3LCParser::parse(Rule::file, input)?.single()?)
 }
 
 #[cfg(test)]
@@ -100,20 +132,33 @@ mod tests {
     macro_rules! parser_tests { ($($name:ident: $input:expr, $expected:expr)*) => {
 
         // modularized for name deduplication, concat_idents isn't on stable
-        mod parse_term {
+        mod term {
             use super::*;
             $(
-            mod $name {
-                use super::*;
-                #[test]
-                fn test() -> ParserResult<()> {
-                    let term = to_term($input)?;
-                    assert_eq!(
-                        term,
-                        $expected
-                    );
-                    Ok(())
-                }
+            #[test]
+            fn $name() -> ParserResult<()> {
+                let term = to_term($input)?;
+                assert_eq!(
+                    term,
+                    $expected
+                );
+                Ok(())
+            }
+            )*
+        }
+
+        mod defn {
+            use super::*;
+            $(
+            #[test]
+            fn $name() -> ParserResult<()> {
+                let input = stringify!($name).to_string() + " := " + $input + ";";
+                let defn = M3LCParser::defn(M3LCParser::parse(Rule::defn, &input)?.single()?)?;
+                assert_eq!(
+                    defn,
+                    Defn::new(stringify!($name).into(), $expected)
+                );
+                Ok(())
             }
             )*
         }
@@ -202,5 +247,41 @@ mod tests {
             }.into(),
             right: "z".into()
         }
+    }
+
+    #[test]
+    fn file() -> ParserResult<()> {
+        let input = "\
+            ident := fn x => x;\n\
+            zero := fn f => fn a => a;\n\
+            main := ident zero;\
+        ";
+        let defns = vec![
+            Defn::new(
+                "ident".into(),
+                Lam {
+                    param: "x".into(),
+                    rule: "x".into(),
+                },
+            ),
+            Defn::new(
+                "zero".into(),
+                Lam {
+                    param: "f".into(),
+                    rule: Lam {
+                        param: "a".into(),
+                        rule: "a".into(),
+                    }
+                    .into(),
+                },
+            ),
+        ];
+        let main = Appl {
+            left: "ident".into(),
+            right: "zero".into(),
+        };
+        let expected = File::new(defns, main);
+        assert_eq!(to_file(input)?, expected);
+        Ok(())
     }
 }

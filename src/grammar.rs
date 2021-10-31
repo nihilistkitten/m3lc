@@ -76,24 +76,61 @@ pub struct Defn {
     term: Term,
 }
 
+impl Defn {
+    /// Create a new `Defn`.
+    pub const fn new(name: String, term: Term) -> Self {
+        Self { name, term }
+    }
+
+    /// Get a reference to the defn's name.
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    /// Get a reference to the defn's term.
+    pub const fn term(&self) -> &Term {
+        &self.term
+    }
+}
+
 impl Display for Defn {
+    // Displaying `defn` does not include the closing ;, because a) that's how it's implemented in
+    // the grammar, and b) I think it looks better that way.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} := {}", self.name, self.term)
     }
 }
 
 /// A file of defns, with a main term.
+#[derive(Debug, PartialEq)]
 pub struct File {
     defns: Vec<Defn>,
     main: Term,
 }
 
+impl File {
+    /// Create a new `File`.
+    pub const fn new(defns: Vec<Defn>, main: Term) -> Self {
+        Self { defns, main }
+    }
+
+    /// Get a reference to the file's defns.
+    pub fn defns(&self) -> &[Defn] {
+        self.defns.as_ref()
+    }
+
+    /// Get a reference to the file's main.
+    pub const fn main(&self) -> &Term {
+        &self.main
+    }
+}
+
 impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for defn in &self.defns {
-            writeln!(f, "{}", defn)?;
+            writeln!(f, "{};", defn)?;
         }
-        write!(f, "main := {}", self.main)
+        write!(f, "main := {};", self.main)
     }
 }
 
@@ -214,9 +251,9 @@ mod tests {
         };
         let file = File { defns, main };
         let expected = "\
-            ident := fn x => x\n\
-            zero := fn f => fn a => a\n\
-            main := ident zero\
+            ident := fn x => x;\n\
+            zero := fn f => fn a => a;\n\
+            main := ident zero;\
         ";
         assert_eq!(format!("{}", file), expected);
     }
