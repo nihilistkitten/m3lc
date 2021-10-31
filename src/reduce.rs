@@ -156,27 +156,24 @@ impl Term {
     }
 
     /// Perform substitution of `replace` for `with` in `self`.
-    ///
-    /// [s/x] x           := s
-    /// [s/x] y           := y
-    /// [s/x] (fn x => t) := (fn x => t)
-    /// [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
-    /// [s/x] (t1 t2)     := ([s/x] t1) ([s/x] t2)
-    ///
     fn subst(self, replace: &str, with: Self) -> Self {
         match self {
             Self::Var(ref s) => {
                 if s == replace {
+                    // [s/x] x := s
                     with
                 } else {
+                    // [s/x] y := y
                     self
                 }
             }
             Self::Lam { param, rule } => {
                 if param == replace {
+                    // [s/x] (fn x => t) := (fn x => t)
                     // can't use "self" here because we move `rule` for handling the else case
                     Self::Lam { param, rule }
                 } else {
+                    // [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
                     let new_var = get_fresh(&param);
                     Self::Lam {
                         param: new_var.clone(), // we need to clone the String that get_fresh gives us
@@ -188,6 +185,7 @@ impl Term {
                 }
             }
             Self::Appl { left, right } => Self::Appl {
+                // [s/x] (t1 t2) := ([s/x] t1) ([s/x] t2)
                 left: left.subst(replace, with.clone()).into(),
                 right: right.subst(replace, with).into(),
             },
@@ -275,9 +273,9 @@ mod tests {
         macro_rules! beta_reduction_tests { ($($name:ident: $input:expr, $expected:expr)*) => {
             $(
             #[test]
-            /// This is not a proper unit test because of the dependency on `to_term`, but it makes
-            /// tests _much_ easier to develop.
             fn $name() -> ParserResult<()> {
+                // This is not a proper unit test because of the dependency on `to_term`, but it
+                // makes tests _much_ easier to develop.
                 assert!(to_term($input)?.reduce().alpha_equiv(&to_term($expected)?));
                 Ok(())
             }
