@@ -7,50 +7,86 @@ impl Term {
     /// Check whether the term is beta-reducible.
     fn is_irreducible(&self) -> bool {
         match self {
-            Self::Var(_) => true, // bare vars are irreducible
+            // -----
+            // x irr
+            Self::Var(_) => true,
+
             Self::Appl { left, right } => {
                 if let Self::Lam { .. } = left.as_ref() {
+                    // Lams applied to terms are always reducible.
                     false
                 } else {
+                    // Follows from one of these rules, depending on the variant of left:
+                    //
+                    //  (t1 t2) irr    t3 irr
+                    // ----------------------
+                    //    ((t1 t2) t3) irr
+                    //
+                    //   t irr
+                    // ---------
+                    // (x t) irr
                     left.is_irreducible() && right.is_irreducible()
                 }
             }
-            // a lam is irreducible iff its rule is
+            //      t irr
+            // ---------------
+            // (fn x => t) irr
             Self::Lam { rule, .. } => rule.is_irreducible(),
         }
     }
 
     /// Perform normal-order beta reduction.
     pub fn reduce(mut self) -> Term {
-        while !self.is_irreducible() {
-            self = match self {
-                Self::Lam { param, rule } => Self::Lam {
-                    param,
-                    rule: rule.reduce().into(),
-                },
-                Self::Appl { left, right } => {
-                    if let Self::Lam { param, rule } = *left {
-                        rule.subst(&param, *right)
-                    } else if left.is_irreducible() {
-                        // reduce the left first
-                        Self::Appl {
-                            left,
-                            right: right.reduce().into(),
-                        }
-                    } else {
-                        // then the right
-                        Self::Appl {
-                            left: left.reduce().into(),
-                            right,
-                        }
+        match self {
+            Self::Lam { param, rule } => Self::Lam {
+                //           t ~~> t'
+                // ----------------------------
+                // (fn x => t) ~~> (fn x => t')
+                param,
+                rule: rule.reduce().into(),
+            },
+            Self::Appl { left, right } => {
+                if let Self::Lam { param, rule } = *left {
+                    // -------------------------
+                    // (fn x => t) s ~~> [s/x] t
+                    rule.subst(&param, *right).reduce()
+                } else if left.is_irreducible() {
+                    // Only reduce the right if the left is already reduced.
+                    //
+                    // t1 irr    t2 ~~> t2'
+                    // ----------------------
+                    //  (t1 t2) ~~> (t1 t2')
+                    Self::Appl {
+                        left,
+                        right: right.reduce().into(),
                     }
+                } else {
+                    // Note that here left is not a Var, because it's reducible, and not a Lam,
+                    // because that was checked earlier. Therefore left is (t1 t2) and reducible,
+                    // and so one of two rules applies:
+                    //
+                    //          t1 ~~> t1'
+                    // ------------------------------
+                    // ((t1 t2) t3) ~~> ((t1' t2) t3)
+                    //
+                    //     t1 irr      t2 ~~> t2'
+                    // ------------------------------
+                    // ((t1 t2) t3) ~~> ((t1 t2') t3)
+                    //
+                    // Either way, we can implement the reduction by recurring to the left.
+                    Self::Appl {
+                        left: left.reduce().into(),
+                        right,
+                    }
+                    // It's important to reduce the whole thing again, in case the recursion turned
+                    // left into a lambda.
+                    .reduce()
                 }
+            }
 
-                // safety: vars are always irreducible
-                Self::Var(_) => unreachable!(),
-            };
+            // Vars are irreducible.
+            Self::Var(_) => self,
         }
-        self
     }
 
     /// Check term equivalence under alpha-renaming.
