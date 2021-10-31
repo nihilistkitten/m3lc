@@ -1,0 +1,22 @@
+file = { SOI ~ defn* ~ main ~ EOI }
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT    = _{ "#" ~ ANY* ~ NEWLINE }
+
+keywords = @{ "fn" | "main" }
+char = { ASCII_ALPHANUMERIC | "." | "_" }
+reserved = @{ keywords ~ !char }
+ident = @{ !reserved ~ char+ }
+
+
+// to avoid parsing ambiguities (PEG format doesn't support left-recursive grammars), we 
+// make `appl` the "higher" term on the grammar, lex it as a list of 1+ terms, and handle
+// left-associativity in the parser.
+appl = { term ~ (juxa ~ term)* }  		   
+juxa = { "" } // empty operator rule to meet pest's precedence climbing api
+term = { lam | var | "(" ~ appl ~ ")" }
+var = { ident } // we don't just use `ident` here so that `lam` doesnt' need an extra `Box`.
+lam = { "fn" ~ ident ~ "=>" ~ appl }
+
+defn = { ident ~ ":=" ~ appl ~ ";" }
+main = { "main :=" ~ appl ~ ";" }

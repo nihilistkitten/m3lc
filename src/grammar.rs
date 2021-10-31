@@ -10,8 +10,8 @@ use std::fmt::Display;
 /// A single lambda term:
 #[derive(Debug, PartialEq)]
 pub enum Term {
-    /// A named identifier.
-    Ident(String),
+    /// A named variable.
+    Var(String),
 
     /// A lambda abstraction.
     Lam { param: String, rule: Box<Term> },
@@ -20,9 +20,21 @@ pub enum Term {
     Appl { left: Box<Term>, right: Box<Term> },
 }
 
+impl From<String> for Term {
+    fn from(s: String) -> Self {
+        Self::Var(s)
+    }
+}
+
+impl From<String> for Box<Term> {
+    fn from(s: String) -> Self {
+        Self::new(s.into())
+    }
+}
+
 impl From<&str> for Term {
     fn from(s: &str) -> Self {
-        Self::Ident(s.into())
+        Self::Var(s.into())
     }
 }
 
@@ -36,7 +48,7 @@ impl From<&str> for Box<Term> {
 impl Display for Term {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
-            Self::Ident(s) => s.to_string(),
+            Self::Var(s) => s.to_string(),
             Self::Lam { param, rule } => format!("fn {} => {}", param, rule),
             Self::Appl { left, right } => {
                 // we parenthesize lams (for readability) and right-heavy appls (for associativity)
@@ -45,7 +57,7 @@ impl Display for Term {
                 } else {
                     format!("{}", left)
                 };
-                let right_fmt = if let Self::Ident(_) = right.as_ref() {
+                let right_fmt = if let Self::Var(_) = right.as_ref() {
                     format!("{}", right)
                 } else {
                     format!("({})", right)
@@ -88,7 +100,7 @@ impl Display for File {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Term::{Appl, Ident, Lam};
+    use Term::{Appl, Lam, Var};
 
     macro_rules! term_display_tests { ($($name:ident: $expected:expr, $ast:expr)*)  => {
     mod term_display {
@@ -104,7 +116,7 @@ mod tests {
     }}}
 
     term_display_tests! {
-        identifier: "s", Ident("s".into())
+        identifier: "s", Var("s".into())
         identity: "fn x => x", Lam{param: "x".into(), rule: "x".into()}
         one: "fn f => fn a => f a", Lam{
             param: "f".into(),
