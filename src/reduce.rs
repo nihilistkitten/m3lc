@@ -4,6 +4,55 @@ use std::cell::RefCell;
 use crate::grammar::Term;
 
 impl Term {
+    /// Check whether the term is beta-reducible.
+    fn is_irreducible(&self) -> bool {
+        match self {
+            Self::Var(_) => true, // bare vars are irreducible
+            Self::Appl { left, right } => {
+                if let Self::Lam { .. } = left.as_ref() {
+                    false
+                } else {
+                    left.is_irreducible() && right.is_irreducible()
+                }
+            }
+            // a lam is irreducible iff its rule is
+            Self::Lam { rule, .. } => rule.is_irreducible(),
+        }
+    }
+
+    /// Perform normal-order beta reduction.
+    pub fn reduce(mut self) -> Term {
+        while !self.is_irreducible() {
+            self = match self {
+                Self::Lam { param, rule } => Self::Lam {
+                    param,
+                    rule: rule.reduce().into(),
+                },
+                Self::Appl { left, right } => {
+                    if let Self::Lam { param, rule } = *left {
+                        rule.subst(&param, *right)
+                    } else if left.is_irreducible() {
+                        // reduce the left first
+                        Self::Appl {
+                            left,
+                            right: right.reduce().into(),
+                        }
+                    } else {
+                        // then the right
+                        Self::Appl {
+                            left: left.reduce().into(),
+                            right,
+                        }
+                    }
+                }
+
+                // safety: vars are always irreducible
+                Self::Var(_) => unreachable!(),
+            };
+        }
+        self
+    }
+
     /// Check term equivalence under alpha-renaming.
     ///
     /// The idea is to maintain a context which stores the existing lambda abstractions, _in
@@ -24,8 +73,8 @@ impl Term {
                     || ctx
                         .iter()
                         .rfind(|(a, b)| a == x || b == y) // find the most recent binding of x or y
-                        .map_or(false, |(a, b)| a == x && b == y)
-            } // it should also bind the other
+                        .map_or(false, |(a, b)| a == x && b == y) // it should also bind the other
+            }
 
             // handling lam: store params in the ctx and recurse on the rules
             (
@@ -127,6 +176,155 @@ fn get_fresh(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod reduction {
+        use super::*;
+        use crate::{to_term, ParserResult};
+        use Term::{Appl, Lam};
+
+        #[test]
+        /// Test a simple lambda application, (fn x => x) z.
+        fn simple_lam_appl() {
+            let input = Appl {
+                left: Lam {
+                    param: "x".into(),
+                    rule: "x".into(),
+                }
+                .into(),
+                right: "z".into(),
+            };
+
+            assert_eq!(input.reduce(), "z".into());
+        }
+
+        #[test]
+        /// Test a const lambda appl'd to something.
+        fn lam_appl_const() {
+            let input = Appl {
+                left: Lam {
+                    param: "x".into(),
+                    rule: "y".into(),
+                }
+                .into(),
+                right: "z".into(),
+            };
+
+            assert_eq!(input.reduce(), "y".into());
+        }
+
+        #[test]
+        /// Test a lambda applied to another lambda.
+        fn lam_app_lam() {
+            let input = Appl {
+                left: Appl {
+                    left: Lam {
+                        param: "x".into(),
+                        rule: "x".into(),
+                    }
+                    .into(),
+                    right: Lam {
+                        param: "x".into(),
+                        rule: "x".into(),
+                    }
+                    .into(),
+                }
+                .into(),
+                right: "a".into(),
+            };
+            assert_eq!(input.reduce(), "a".into());
+        }
+
+        // takes a name, a string representing the term to be reduced, and a string representing
+        // the expected normal form
+        macro_rules! beta_reduction_tests { ($($name:ident: $input:expr, $expected:expr)*) => {
+            $(
+            #[test]
+            /// This is not a proper unit test because of the dependency on `to_term`, but it makes
+            /// tests _much_ easier to develop.
+            fn $name() -> ParserResult<()> {
+                assert!(to_term($input)?.reduce().alpha_equiv(&to_term($expected)?));
+                Ok(())
+            }
+            )*
+        }}
+
+        beta_reduction_tests! {
+            nested_sub: "(fn f => fn a => f) x", "fn a => x"
+            order_matters: "(fn f => fn x => f (f x)) (fn q => r) a b", "r b"
+            many_renames: "(fn f => fn y => fn x => x (y f)) y x f", "f (x y)"
+        }
+    }
+
+    mod is_irreducible {
+        use super::*;
+        use Term::{Appl, Lam, Var};
+
+        #[test]
+        fn var() {
+            assert!(Var("x".into()).is_irreducible());
+        }
+
+        #[test]
+        fn lam() {
+            assert!(Lam {
+                param: "x".into(),
+                rule: "y".into()
+            }
+            .is_irreducible());
+        }
+
+        #[test]
+        fn lam_reducible_rule() {
+            assert!(!Lam {
+                param: "x".into(),
+                rule: Appl {
+                    left: Lam {
+                        param: "x".into(),
+                        rule: "x".into(),
+                    }
+                    .into(),
+                    right: "z".into()
+                }
+                .into()
+            }
+            .is_irreducible());
+        }
+
+        #[test]
+        fn lam_appl() {
+            assert!(!Appl {
+                left: Lam {
+                    param: "x".into(),
+                    rule: "x".into(),
+                }
+                .into(),
+                right: "z".into()
+            }
+            .is_irreducible());
+        }
+
+        #[test]
+        /// Test a lambda applied to another lambda.
+        fn lam_app_lam() {
+            assert!(!Appl {
+                left: Appl {
+                    left: Lam {
+                        param: "x".into(),
+                        rule: "x".into(),
+                    }
+                    .into(),
+                    right: Lam {
+                        param: "x".into(),
+                        rule: "x".into(),
+                    }
+                    .into(),
+                }
+                .into(),
+                right: "a".into(),
+            }
+            .is_irreducible());
+        }
+    }
 
     mod get_fresh {
         use super::*;
