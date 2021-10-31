@@ -9,11 +9,15 @@
 //! More of a choice is in using owned Strings. You can probably implement this with `&str`s, but I
 //! didn't think the added complexity would be worth it; this code is not particularly
 //! performance-sensitive, and the `into`s aren't _that_ awkward.
-
+//!
+//! Also, because we box Terms instead of keeping a borrow (because that would be a _nightmare_ if
+//! we didn't own subterms, and probably is just impossible), we need to be able to clone terms,
+//! for the specific case of taking the beta-substitution of a `Term::Appl`. This adds extra
+//! overhead, but not much, since we only clone in that specific case.
 use std::fmt::Display;
 
 /// A single lambda term:
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Term {
     /// A named variable.
     Var(String),

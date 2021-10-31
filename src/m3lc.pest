@@ -4,7 +4,7 @@ WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT    = _{ "#" ~ ANY* ~ NEWLINE }
 
 keywords = @{ "fn" | "main" }
-char = { ASCII_ALPHANUMERIC | "." | "_" }
+char = { ASCII_ALPHANUMERIC | "_" }
 reserved = @{ keywords ~ !char }
 ident = @{ !reserved ~ char+ }
 

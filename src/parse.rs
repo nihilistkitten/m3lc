@@ -250,6 +250,12 @@ mod tests {
     }
 
     #[test]
+    fn no_period_in_ident() {
+        assert!(to_term(".").is_err());
+        assert!(to_term("fn x.1 => x.1").is_err());
+    }
+
+    #[test]
     fn file() -> ParserResult<()> {
         let input = "\
             ident := fn x => x;\n\
