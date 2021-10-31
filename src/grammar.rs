@@ -1,9 +1,14 @@
 //! The abstract grammar.
 //!
 //! # Implementation
-//! Note that we generally use owned strings. You can probably implement this with `&str`s, but I
+//!
+//! Everything is heap-allocated. This isn't great for performance. You obviously have to box the
+//! recursive types so the compiler can size the type, but it makes for awkward code (lots of
+//! `into`s to coerce to Box/String).
+//!
+//! More of a choice is in using owned Strings. You can probably implement this with `&str`s, but I
 //! didn't think the added complexity would be worth it; this code is not particularly
-//! performance-sensitive.
+//! performance-sensitive, and the `into`s aren't _that_ awkward.
 
 use std::fmt::Display;
 
@@ -122,6 +127,33 @@ impl File {
     /// Get a reference to the file's main.
     pub const fn main(&self) -> &Term {
         &self.main
+    }
+
+    /// Unroll the file into a single lambda.
+    ///
+    /// We think of main as abstracted over each defn in reverse, i.e.
+    /// ```m3lc
+    /// foo := term1
+    /// bar := term2
+    /// main := term3
+    /// ```
+    ///
+    /// unrolls into a `Term` equivalent to
+    /// ```m3lc
+    /// (fn foo => (fn bar => term3) term2) term1
+    /// ```
+    pub fn unroll(mut self) -> Term {
+        for defn in self.defns.into_iter().rev() {
+            self.main = Term::Appl {
+                left: Term::Lam {
+                    param: defn.name,
+                    rule: self.main.into(),
+                }
+                .into(),
+                right: defn.term.into(),
+            }
+        }
+        self.main
     }
 }
 
@@ -256,5 +288,67 @@ mod tests {
             main := ident zero;\
         ";
         assert_eq!(format!("{}", file), expected);
+    }
+
+    #[test]
+    fn test_unroll() {
+        let defns = vec![
+            Defn {
+                name: "ident".into(),
+                term: Lam {
+                    param: "x".into(),
+                    rule: "x".into(),
+                },
+            },
+            Defn {
+                name: "zero".into(),
+                term: Lam {
+                    param: "f".into(),
+                    rule: Lam {
+                        param: "a".into(),
+                        rule: "a".into(),
+                    }
+                    .into(),
+                },
+            },
+        ];
+        let main = Appl {
+            left: "ident".into(),
+            right: "zero".into(),
+        };
+        let input = File { defns, main };
+        let expected = Appl {
+            left: Lam {
+                param: "ident".into(),
+                rule: Appl {
+                    left: Lam {
+                        param: "zero".into(),
+                        rule: Appl {
+                            left: "ident".into(),
+                            right: "zero".into(),
+                        }
+                        .into(),
+                    }
+                    .into(),
+                    right: Lam {
+                        param: "f".into(),
+                        rule: Lam {
+                            param: "a".into(),
+                            rule: "a".into(),
+                        }
+                        .into(),
+                    }
+                    .into(),
+                }
+                .into(),
+            }
+            .into(),
+            right: Lam {
+                param: "x".into(),
+                rule: "x".into(),
+            }
+            .into(),
+        };
+        assert_eq!(input.unroll(), expected);
     }
 }
