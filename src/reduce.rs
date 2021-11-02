@@ -115,7 +115,7 @@ impl Term {
 
             // [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
             Self::Lam { param, rule } => {
-                let new_var = get_fresh(&param);
+                let new_var = get_fresh_ident(&param);
                 Self::Lam {
                     param: new_var.clone(), // we need new_var for the param and the recursive subst
                     rule: rule
@@ -203,13 +203,24 @@ impl Term {
 thread_local!(static COUNTER: RefCell<usize> = 0.into());
 
 /// Generate a fresh variable name.
-fn get_fresh(s: &str) -> String {
+fn get_fresh_ident(s: &str) -> String {
     // The grammar forbids variable names containing ".", so this name can't have been written by
     // the user, and the global counter ensures that specific name hasn't been generated yet by
     // this method, which is the only way new names get added to the AST.
+    //
+    // This function is the primary reason we store owned Strings in AST Terms, instead of borrowed
+    // `&str`s. We need to be able to append onto the end of `s`, but `&str`s can't guarantee (and
+    // obviously in general it's highly unlikely) that the referenced string will be next to the
+    // string we're appending to the end. Returning a `String` from this function doesn't work if
+    // `Term` expects a `&str`, because the reference won't live past the end of `Term::reduce`.
     COUNTER.with(|c| {
         *c.borrow_mut() += 1;
-        s.to_string() + "." + &c.borrow().to_string()
+        s.split('.')
+            .next()
+            .expect("split gives at least one item")
+            .to_string()
+            + "."
+            + &c.borrow().to_string()
     })
 }
 
@@ -371,14 +382,16 @@ mod tests {
         }
     }
 
-    mod get_fresh {
+    mod get_fresh_ident {
         use super::*;
         use std::collections::HashSet;
 
         #[test]
         fn foo() {
             let mut uniq = HashSet::new();
-            assert!((0..100).map(|_| get_fresh("foo")).all(|x| uniq.insert(x)));
+            assert!((0..100)
+                .map(|_| get_fresh_ident("foo"))
+                .all(|x| uniq.insert(x)));
         }
 
         #[test]
@@ -398,7 +411,7 @@ mod tests {
                 "foo_world"
             ]
             .into_iter()
-            .map(get_fresh)
+            .map(get_fresh_ident)
             .all(|x| uniq.insert(x)));
         }
     }

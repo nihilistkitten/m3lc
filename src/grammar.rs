@@ -1,24 +1,26 @@
 //! The abstract grammar.
-//!
-//! # Implementation
-//!
-//! Everything is heap-allocated. This isn't great for performance. You obviously have to box the
-//! recursive types so the compiler can size the type, but it makes for awkward code (lots of
-//! `into`s to coerce to Box/String).
-//!
-//! More of a choice is in using owned Strings. You can probably implement this with `&str`s, but I
-//! didn't think the added complexity would be worth it; this code is not particularly
-//! performance-sensitive, and the `into`s aren't _that_ awkward.
-//!
-//! Also, because we box Terms instead of keeping a borrow (because that would be a _nightmare_ if
-//! we didn't own subterms, and probably is just impossible), we need to be able to clone terms,
-//! for the specific case of taking the beta-substitution of a `Term::Appl`. This adds extra
-//! overhead, but not much, since we only clone in that specific case.
 use std::fmt::Display;
 
 /// A single lambda term:
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
+    // Many things here are heap-allocated. This isn't great for performance. You obviously have to
+    // box the recursive types so the compiler can size the type, but it makes for awkward code
+    // (lots of `into`s to coerce to Box/String).
+    //
+    // More of a choice is in using owned Strings. You can probably implement this with `&str`s, but I
+    // didn't think the added complexity would be worth it; this code is not particularly
+    // performance-sensitive, and the `into`s aren't _that_ awkward. The big issue with using borrows
+    // is in the `reduce::get_fresh_ident` function, which requires mutability. There is an
+    // explanation of why this is a problem in that function. A second concern is that in a
+    // hypothetical REPL, the &str would only live to the end of the loop, we'd want it to live for
+    // the duration of the REPL so that we could reference terms in other terms.
+    //
+    // Also, because we box Terms instead of keeping a borrow (because that would be a _nightmare_ if
+    // we didn't own subterms, and probably is just impossible), we need to be able to clone terms,
+    // for the specific case of taking the beta-substitution of a `Term::Appl`. This adds extra
+    // overhead, but not much, since we only clone in that specific case.
+    //
     /// A named variable.
     Var(String),
 
@@ -29,28 +31,24 @@ pub enum Term {
     Appl { left: Box<Term>, right: Box<Term> },
 }
 
-impl From<String> for Term {
-    fn from(s: String) -> Self {
-        Self::Var(s)
-    }
-}
-
-impl From<String> for Box<Term> {
-    fn from(s: String) -> Self {
-        Self::new(s.into())
-    }
-}
-
-impl From<&str> for Term {
-    fn from(s: &str) -> Self {
+impl<S> From<S> for Term
+where
+    S: Into<String>,
+{
+    fn from(s: S) -> Self {
         Self::Var(s.into())
     }
 }
 
-impl From<&str> for Box<Term> {
-    fn from(s: &str) -> Self {
-        // type inference isn't good enough to chain two intos here
-        Self::new(s.into())
+impl<S> From<S> for Box<Term>
+where
+    S: Into<String>,
+{
+    fn from(s: S) -> Self {
+        // Type inference is not good enough to chain three intos here: it can infer the type of
+        // the first into because S only impls Into<String>, but it can't get that `Term` is the
+        // intermediate type if we tried to `Into` twice.
+        Self::new(s.into().into())
     }
 }
 
