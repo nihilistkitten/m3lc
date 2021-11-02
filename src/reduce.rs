@@ -38,7 +38,7 @@ impl Term {
                     // reducing on the left, then outside (in case a lambda was created), then the
                     // right, because after reducing an outer lambda created by reducing on the
                     // left, we could need to again reduce on the left, because that outer
-                    // reduction could have created and reducible left side.
+                    // reduction could have created a reducible left side.
                     Self::Appl {
                         left,
                         right: right.reduce().into(),
@@ -148,11 +148,11 @@ impl Term {
         match (self, other) {
             // handling var: if x and y are most recently bound in the same lambda, return true
             (Self::Var(x), Self::Var(y)) => {
-                x == y
-                    || ctx
-                        .iter()
-                        .rfind(|(a, b)| a == x || b == y) // find the most recent binding of x or y
-                        .map_or(false, |(a, b)| a == x && b == y) // it should also bind the other
+                #[allow(clippy::map_unwrap_or)] // slight performance tradeoff, but more readable
+                ctx.iter()
+                    .rfind(|(a, b)| a == x || b == y) // find the most recent binding of x or y
+                    .map(|(a, b)| a == x && b == y) // it should also bind the other
+                    .unwrap_or(x == y) // if neither is bound, they should be equal
             }
 
             // handling lam: store params in the ctx and recurse on the rules
@@ -166,7 +166,7 @@ impl Term {
                     rule: rule2,
                 },
             ) => {
-                // I think there ought to be a better way to handle this with iterator adapters,
+                // I think there ought to be a cleaner way to handle this with iterator adapters,
                 // but this works for now. Certainly it's not pretty code, but this is an ugly
                 // procedure by nature.
 
@@ -440,6 +440,23 @@ mod tests {
             .alpha_equiv(&Lam {
                 param: "y".into(),
                 rule: "y".into()
+            }));
+        }
+
+        #[test]
+        /// Test `alpha_equiv` for lambdas with the same argument and different binding.
+        ///
+        /// This used to cause a bug, because for Vars we checked equivalence of the identifier
+        /// before looking up the identifier in the context. We only care about the actual
+        /// identifier if _neither_ identifier is bound in the context.
+        fn different_binding() {
+            assert!(!Lam {
+                param: "x".into(),
+                rule: "x".into()
+            }
+            .alpha_equiv(&Lam {
+                param: "y".into(),
+                rule: "x".into()
             }));
         }
 
