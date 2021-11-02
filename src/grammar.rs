@@ -31,6 +31,8 @@ pub enum Term {
     Appl { left: Box<Term>, right: Box<Term> },
 }
 
+// Importantly, this impl converts a string into a `Term::Var`, it does _not_ try to parse the string
+// as a lambda. This would be fallible behavior, which is not ok for `From`.
 impl<S> From<S> for Term
 where
     S: Into<String>,
@@ -57,19 +59,34 @@ impl Display for Term {
         let message = match self {
             Self::Var(s) => s.to_string(),
             Self::Lam { param, rule } => format!("fn {} => {}", param, rule),
+
+            // We need special handling here to deal with parenthesization. I _think_ that this
+            // parenthesization is invertible, i.e. that we don't drop any associativity
+            // information and so `to_term(t.to_string())` always produces the original term.
+            // But I haven't verified this formally or anything. My informal analysis is explained
+            // in the comments below.
             Self::Appl { left, right } => {
-                // we parenthesize lams (for readability) and right-heavy appls (for associativity)
                 let left_fmt = if let Self::Lam { .. } = left.as_ref() {
-                    format!("({})", left)
+                    // parenthesize lambdas on the left: consider `(fn x => x) g` vs `fn x => x g`
+                    "(".to_string() + &left.to_string() + ")"
                 } else {
-                    format!("{}", left)
+                    // no need to parenthesize vars, ever
+                    //
+                    // no need to parenthesize left-heavy appls because of associativity
+                    left.to_string()
                 };
                 let right_fmt = if let Self::Var(_) = right.as_ref() {
-                    format!("{}", right)
+                    // no need to parenthesize vars, ever
+                    right.to_string()
                 } else {
-                    format!("({})", right)
+                    // parenthesize appls on the right: consider `x y z` vs `x (y z)`
+                    //
+                    // no need to parenthesize lambdas on the right: `fn` sort of does this for us,
+                    // but we do it anyway for readability: consider
+                    // `(fn x => xx) fn x => xx` vs `(fn x => xx) (fn x => xx)`
+                    "(".to_string() + &right.to_string() + ")"
                 };
-                format!("{} {}", left_fmt, right_fmt)
+                left_fmt + " " + &right_fmt
             }
         };
         write!(f, "{}", message)
