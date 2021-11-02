@@ -4,9 +4,9 @@ use std::fmt::Display;
 /// A single lambda term:
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
-    // Many things here are heap-allocated. This isn't great for performance. You obviously have to
-    // box the recursive types so the compiler can size the type, but it makes for awkward code
-    // (lots of `into`s to coerce to Box/String).
+    // Many things here are heap-allocated. You obviously have to box the recursive types so the
+    // compiler can size the type, but it makes for awkward code (lots of `into`s to coerce to
+    // Box/String).
     //
     // More of a choice is in using owned Strings. You can probably implement this with `&str`s, but I
     // didn't think the added complexity would be worth it; this code is not particularly
@@ -15,11 +15,6 @@ pub enum Term {
     // explanation of why this is a problem in that function. A second concern is that in a
     // hypothetical REPL, the &str would only live to the end of the loop, we'd want it to live for
     // the duration of the REPL so that we could reference terms in other terms.
-    //
-    // Also, because we box Terms instead of keeping a borrow (because that would be a _nightmare_ if
-    // we didn't own subterms, and probably is just impossible), we need to be able to clone terms,
-    // for the specific case of taking the beta-substitution of a `Term::Appl`. This adds extra
-    // overhead, but not much, since we only clone in that specific case.
     //
     /// A named variable.
     Var(String),
@@ -49,7 +44,7 @@ where
     fn from(s: S) -> Self {
         // Type inference is not good enough to chain three intos here: it can infer the type of
         // the first into because S only impls Into<String>, but it can't get that `Term` is the
-        // intermediate type if we tried to `Into` twice.
+        // second intermediate type if we tried to `into` twica third time.
         Self::new(s.into().into())
     }
 }
@@ -68,7 +63,7 @@ impl Display for Term {
             Self::Appl { left, right } => {
                 let left_fmt = if let Self::Lam { .. } = left.as_ref() {
                     // parenthesize lambdas on the left: consider `(fn x => x) g` vs `fn x => x g`
-                    "(".to_string() + &left.to_string() + ")"
+                    format!("({})", left)
                 } else {
                     // no need to parenthesize vars, ever
                     //
@@ -84,7 +79,7 @@ impl Display for Term {
                     // no need to parenthesize lambdas on the right: `fn` sort of does this for us,
                     // but we do it anyway for readability: consider
                     // `(fn x => xx) fn x => xx` vs `(fn x => xx) (fn x => xx)`
-                    "(".to_string() + &right.to_string() + ")"
+                    format!("({})", right)
                 };
                 left_fmt + " " + &right_fmt
             }

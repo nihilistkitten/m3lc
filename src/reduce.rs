@@ -166,16 +166,10 @@ impl Term {
                     rule: rule2,
                 },
             ) => {
-                // I think there ought to be a cleaner way to handle this with iterator adapters,
-                // but this works for now. Certainly it's not pretty code, but this is an ugly
-                // procedure by nature.
-
-                let out = rule1.alpha_equiv_impl(rule2, {
-                    // push the new params onto the ctx
-                    ctx.push((param1, param2));
-                    ctx
-                });
-                // pop the params after the check is done
+                // Push the new binding onto the context, compare the rules, then pop it off the
+                // context so that parent calls don't inherit our binding.
+                ctx.push((param1, param2));
+                let out = rule1.alpha_equiv_impl(rule2, ctx);
                 let _ = ctx.pop();
                 out
             }
