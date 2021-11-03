@@ -134,7 +134,7 @@ impl Term {
     }
 
     /// Check term equivalence under alpha-renaming.
-    fn alpha_equiv(&self, other: &Self) -> bool {
+    pub fn alpha_equiv(&self, other: &Self) -> bool {
         self.alpha_equiv_impl(other, &mut vec![])
     }
 

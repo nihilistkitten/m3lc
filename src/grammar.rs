@@ -1,7 +1,7 @@
 //! The abstract grammar.
 use std::fmt::Display;
 
-/// A single lambda term:
+/// A single lambda term.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
     // Many things here are heap-allocated. You obviously have to box the recursive types so the
@@ -28,24 +28,29 @@ pub enum Term {
 
 // Importantly, this impl converts a string into a `Term::Var`, it does _not_ try to parse the string
 // as a lambda. This would be fallible behavior, which is not ok for `From`.
-impl<S> From<S> for Term
-where
-    S: Into<String>,
-{
-    fn from(s: S) -> Self {
-        Self::Var(s.into())
+impl From<String> for Term {
+    fn from(s: String) -> Self {
+        Self::Var(s)
     }
 }
 
-impl<S> From<S> for Box<Term>
-where
-    S: Into<String>,
-{
-    fn from(s: S) -> Self {
-        // Type inference is not good enough to chain three intos here: it can infer the type of
-        // the first into because S only impls Into<String>, but it can't get that `Term` is the
-        // second intermediate type if we tried to `into` twica third time.
-        Self::new(s.into().into())
+impl From<String> for Box<Term> {
+    fn from(s: String) -> Self {
+        Self::new(s.into())
+    }
+}
+
+impl From<&str> for Term {
+    fn from(s: &str) -> Self {
+        s.to_string().into()
+    }
+}
+
+impl From<&str> for Box<Term> {
+    fn from(s: &str) -> Self {
+        // Type inference is not good enough to chain two intos here; it in particular can't get
+        // that `Term` is the intermediate type.
+        Self::new(s.into())
     }
 }
 
