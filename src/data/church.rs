@@ -31,25 +31,26 @@ lazy_static! {
     };
 }
 
-/// Compute the successor of n.
-///
-/// # Example
-/// ```
-/// # use m3lc::Term;
-/// # use m3lc::church::succ;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// #
-/// let three: Term = 3.into();
-/// assert!(succ(three).alpha_equiv(&4.into()));
-/// #
-/// # Ok(())}
-/// ```
-pub fn succ(n: Term) -> Term {
-    Appl {
-        left: SUCC.clone().into(),
-        right: n.into(),
+impl Term {
+    /// Compute the successor of n.
+    ///
+    /// # Example
+    /// ```
+    /// # use m3lc::Term;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// #
+    /// let three: Term = 3.into();
+    /// assert!(three.succ().alpha_equiv(&4.into()));
+    /// #
+    /// # Ok(())}
+    /// ```
+    pub fn succ(self: Self) -> Self {
+        Appl {
+            left: SUCC.clone().into(),
+            right: self.into(),
+        }
+        .reduce()
     }
-    .reduce()
 }
 
 impl From<usize> for Term {
@@ -78,17 +79,14 @@ impl From<usize> for Term {
 #[derive(Debug)]
 pub struct NotChurchNum;
 
-impl TryFrom<Term> for usize {
+impl TryFrom<&Term> for usize {
     type Error = NotChurchNum;
 
-    fn try_from(term: Term) -> Result<Self, Self::Error> {
+    fn try_from(term: &Term) -> Result<Self, Self::Error> {
         if let Lam { param, rule } = term {
             let f = param; // the f in fn f => fn a => f (f (... a))
-            if let Lam {
-                param,
-                rule: mut curr,
-            } = *rule
-            {
+            if let Lam { param, rule } = rule.as_ref() {
+                let mut curr = rule.as_ref(); // the current step in the iteration
                 let a = param; // the a in the above
 
                 // We're looking for a right-heavy binary tree of `Appl`s, where each leaf is a
@@ -97,9 +95,9 @@ impl TryFrom<Term> for usize {
                 // stop hitting `Appl`s, we should hit `Var(a)`. All the while, we keep a count of
                 // the number of `f`s that we've hit.
                 let mut n = 0;
-                while let Appl { left, right } = *curr {
+                while let Appl { left, right } = curr {
                     // check that the left is a Var(f)
-                    if matches!(*left, Var(x) if x == f) {
+                    if matches!(left.as_ref(), Var(x) if x == f) {
                         n += 1;
                         curr = right;
                     } else {
@@ -108,7 +106,7 @@ impl TryFrom<Term> for usize {
                 }
 
                 // We stopped hitting `Appl`s, so we should have a `Var(a)`.
-                if matches!(*curr, Var(x) if x == a) {
+                if matches!(curr, Var(x) if x == a) {
                     return Ok(n);
                 }
             }
@@ -185,13 +183,13 @@ mod tests {
                 }
                 .into(),
             };
-            assert!(succ(zero).alpha_equiv(&one));
+            assert!(zero.succ().alpha_equiv(&one));
         }
 
         #[test]
         fn seventeen() {
             let seventeen: Term = 17.into();
-            assert!(succ(seventeen).alpha_equiv(&18.into()));
+            assert!(seventeen.succ().alpha_equiv(&18.into()));
         }
     }
 
@@ -204,7 +202,7 @@ mod tests {
             #[test]
             fn $name() -> Result<(), NotChurchNum> {
                 let $name: Term = $input.into();
-                let got: usize = $name.try_into()?;
+                let got: usize = (&$name).try_into()?;
                 assert_eq!(got, $input);
                 Ok(())
             }
@@ -225,7 +223,7 @@ mod tests {
             $(
             #[test]
             fn $name() -> Result<(), NotChurchNum> {
-                let got: usize = $ast.try_into()?;
+                let got: usize = (&$ast).try_into()?;
                 assert_eq!(got, $expected);
                 Ok(())
             }
@@ -270,7 +268,7 @@ mod tests {
             $(
             #[test]
             fn $name() {
-                let got: Result<usize, _> = $ast.try_into();
+                let got: Result<usize, _> = (&$ast).try_into();
                 assert!(got.is_err());
             }
             )*

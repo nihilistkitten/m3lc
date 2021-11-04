@@ -1,27 +1,70 @@
 //! The command-line interface.
 
-use std::{fs, path::PathBuf};
+use std::{fmt::Display, fs};
 
 use crate::{to_file, ParserResult, Term};
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
 struct Opt {
     /// Input file
-    #[structopt(parse(from_os_str))]
-    file: PathBuf,
+    file: String,
 }
 
 impl Term {
     /// Guess the value of the term.
     ///
-    /// Currently, only supports Church numerals.
-    fn guess_val(self) -> Option<String> {
-        self.try_into()
-            .ok()
-            .map(|n: usize| format!("Church numeral {}", n))
+    /// Currently, supports Church numerals and booleans.
+    fn guess_val(self) -> Matches {
+        vec![
+            (&self)
+                .try_into()
+                .ok()
+                .map(|n: usize| format!("Church numeral {}", n).green()),
+            (&self)
+                .try_into()
+                .ok()
+                .map(|b: bool| format!("boolean {}", b).green()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
+
+struct Matches {
+    matches: Vec<ColoredString>,
+}
+
+impl Matches {
+    pub fn is_empty(&self) -> bool {
+        self.matches.is_empty()
+    }
+}
+
+impl FromIterator<ColoredString> for Matches {
+    fn from_iter<T: IntoIterator<Item = ColoredString>>(iter: T) -> Self {
+        Self {
+            matches: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl Display for Matches {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = String::new();
+        if self.matches.len() == 1 {
+            out += &self.matches[0].to_string();
+        } else {
+            for val in &self.matches {
+                out += "\n";
+                out += " - ";
+                out += &val.to_string();
+            }
+        }
+        write!(f, "{}", out)
     }
 }
 
@@ -32,13 +75,19 @@ impl Term {
 pub fn run() -> ParserResult<()> {
     let opt = Opt::from_args();
 
-    let contents = fs::read_to_string(opt.file).expect("Something went wrong reading the file");
+    let contents =
+        fs::read_to_string(&opt.file).expect("Unable to open file");
     let input = to_file(&contents)?;
 
     let output = input.unroll().reduce();
     println!("{}", &output);
-    if let Some(s) = output.guess_val() {
-        println!("I think this is: {}", s.bold());
+
+    let guessed_value = output.guess_val();
+    if !guessed_value.is_empty() {
+        println!();
+        println!("Alpha-equivalent to: {}", guessed_value);
     }
     Ok(())
 }
+
+// TODO: test this lol
