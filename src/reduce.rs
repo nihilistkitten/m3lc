@@ -8,6 +8,7 @@ impl Term {
     ///
     /// # Safety
     /// The halting problem is a thing. Ergo, this can cause unhandled infinite regress.
+    #[must_use]
     pub fn reduce(self) -> Self {
         match self {
             // Vars are irreducible.
@@ -134,6 +135,7 @@ impl Term {
     }
 
     /// Check term equivalence under alpha-renaming.
+    #[must_use]
     pub fn alpha_equiv(&self, other: &Self) -> bool {
         self.alpha_equiv_impl(other, &mut vec![])
     }

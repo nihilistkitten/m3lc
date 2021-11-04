@@ -102,16 +102,19 @@ pub struct Defn {
 
 impl Defn {
     /// Create a new `Defn`.
+    #[must_use]
     pub const fn new(name: String, term: Term) -> Self {
         Self { name, term }
     }
 
     /// Get a reference to the defn's name.
+    #[must_use]
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }
 
     /// Get a reference to the defn's term.
+    #[must_use]
     pub const fn term(&self) -> &Term {
         &self.term
     }
@@ -134,16 +137,19 @@ pub struct File {
 
 impl File {
     /// Create a new `File`.
+    #[must_use]
     pub const fn new(defns: Vec<Defn>, main: Term) -> Self {
         Self { defns, main }
     }
 
     /// Get a reference to the file's defns.
+    #[must_use]
     pub fn defns(&self) -> &[Defn] {
         self.defns.as_ref()
     }
 
     /// Get a reference to the file's main.
+    #[must_use]
     pub const fn main(&self) -> &Term {
         &self.main
     }
@@ -161,7 +167,7 @@ impl File {
     /// ```m3lc
     /// (fn foo => (fn bar => term3) term2) term1
     /// ```
-    pub fn unroll(mut self) -> Term {
+    #[must_use] pub fn unroll(mut self) -> Term {
         for defn in self.defns.into_iter().rev() {
             self.main = Term::Appl {
                 left: Term::Lam {

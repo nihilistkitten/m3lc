@@ -113,11 +113,17 @@ impl M3LCParser {
 }
 
 /// Parse a str to a term.
+///
+/// # Errors
+/// Errors if the input is invalid M3LC code.
 pub fn to_term(input: &str) -> ParserResult<Term> {
     M3LCParser::appl(M3LCParser::parse(Rule::appl, input)?.single()?)
 }
 
 /// Parse a str to a file.
+///
+/// # Errors
+/// Errors if the input is invalid M3LC code.
 pub fn to_file(input: &str) -> ParserResult<File> {
     M3LCParser::file(M3LCParser::parse(Rule::file, input)?.single()?)
 }

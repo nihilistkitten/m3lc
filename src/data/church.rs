@@ -44,7 +44,8 @@ impl Term {
     /// #
     /// # Ok(())}
     /// ```
-    pub fn succ(self: Self) -> Self {
+    #[must_use]
+    pub fn succ(self) -> Self {
         Appl {
             left: SUCC.clone().into(),
             right: self.into(),

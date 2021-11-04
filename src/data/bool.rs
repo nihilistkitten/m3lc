@@ -49,12 +49,12 @@ impl From<bool> for Term {
     }
 }
 
-/// The `Term` is not a Church numeral.
+/// The `Term` is not Boolean.
 #[derive(Debug)]
-pub struct NotBool;
+pub struct NotBoolean;
 
 impl TryFrom<&Term> for bool {
-    type Error = NotBool;
+    type Error = NotBoolean;
 
     fn try_from(term: &Term) -> Result<Self, Self::Error> {
         if term.alpha_equiv(&*TRUE) {
@@ -62,12 +62,13 @@ impl TryFrom<&Term> for bool {
         } else if term.alpha_equiv(&*FALSE) {
             Ok(false)
         } else {
-            Err(NotBool)
+            Err(NotBoolean)
         }
     }
 }
 
 impl Term {
+    #[must_use]
     pub fn and(self, other: Self) -> Self {
         Appl {
             left: Appl {
