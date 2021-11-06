@@ -296,4 +296,10 @@ mod tests {
         assert_eq!(to_file(input)?, expected);
         Ok(())
     }
+
+    #[test]
+    /// Make sure comments are parseable.
+    fn file_with_comments() {
+        assert!(to_file("# comment\nfn f => x").is_ok());
+    }
 }

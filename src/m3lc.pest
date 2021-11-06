@@ -1,7 +1,7 @@
 file = { SOI ~ defns ~ main ~ EOI }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
-COMMENT    = _{ "#" ~ ANY* ~ NEWLINE }
+COMMENT    = _{ "#" ~ (!NEWLINE ~ ANY)* }
 
 keywords = @{ "fn" | "main" }
 char = { ASCII_ALPHANUMERIC | "_" }
