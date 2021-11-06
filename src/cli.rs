@@ -75,8 +75,7 @@ impl Display for Matches {
 pub fn run() -> ParserResult<()> {
     let opt = Opt::from_args();
 
-    let contents =
-        fs::read_to_string(&opt.file).expect("Unable to open file");
+    let contents = fs::read_to_string(&opt.file).expect("Unable to open file");
     let input = to_file(&contents)?;
 
     let output = input.unroll().reduce();

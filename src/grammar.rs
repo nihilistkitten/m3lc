@@ -167,7 +167,8 @@ impl File {
     /// ```m3lc
     /// (fn foo => (fn bar => term3) term2) term1
     /// ```
-    #[must_use] pub fn unroll(mut self) -> Term {
+    #[must_use]
+    pub fn unroll(mut self) -> Term {
         for defn in self.defns.into_iter().rev() {
             self.main = Term::Appl {
                 left: Term::Lam {
