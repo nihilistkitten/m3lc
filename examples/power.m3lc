@@ -1,7 +1,7 @@
 # basic church defns
 0 := fn f => fn a => a;
 succ := fn n => fn f => fn a => f (n f a);
-1 := (succ 0);
+1 := succ 0;
 
 # build operations by repeated application
 add := fn n => fn m => n succ m;
@@ -9,9 +9,9 @@ times := fn n => fn m => n (add m) 0;
 power := fn n => fn m => m (times n) 1;
 
 # numbers for testing
-2 := (succ 1);
-3 := (succ 2);
-4 := (succ 3);
+2 := succ 1;
+3 := succ 2;
+4 := succ 3;
 
 # main
 power 3 4
