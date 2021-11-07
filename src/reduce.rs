@@ -10,6 +10,10 @@ impl Term {
     /// The halting problem is a thing. Ergo, this can cause unhandled infinite regress.
     #[must_use]
     pub fn reduce(self) -> Self {
+        self.reduce_impl(true)
+    }
+
+    fn reduce_impl(self, reduce_in_lam: bool) -> Self {
         match self {
             // Vars are irreducible.
             Self::Var(_) => self,
@@ -17,17 +21,23 @@ impl Term {
             //           t ~~> t'
             // ----------------------------
             // (fn x => t) ~~> (fn x => t')
-            Self::Lam { param, rule } => Self::Lam {
-                param,
-                rule: rule.reduce().into(),
-            },
+            Self::Lam { param, rule } => {
+                if reduce_in_lam {
+                    Self::Lam {
+                        param,
+                        rule: rule.reduce_impl(reduce_in_lam).into(),
+                    }
+                } else {
+                    Self::Lam { param, rule }
+                }
+            }
 
             // Handle appl.
             Self::Appl { left, right } => {
                 if let Self::Lam { param, rule } = *left {
                     // -------------------------
                     // (fn x => t) s ~~> [s/x] t
-                    rule.subst(&param, *right).reduce()
+                    rule.subst(&param, *right).reduce_impl(reduce_in_lam)
                 } else if left.is_irreducible() {
                     // Only reduce the right if the left is already reduced.
                     //
@@ -42,7 +52,7 @@ impl Term {
                     // reduction could have created a reducible left side.
                     Self::Appl {
                         left,
-                        right: right.reduce().into(),
+                        right: right.reduce_impl(reduce_in_lam).into(),
                     }
                 } else {
                     // Note that here left is not a Var, because it's reducible, and not a Lam,
@@ -59,12 +69,15 @@ impl Term {
                     //
                     // Either way, we can implement the reduction by recurring to the left.
                     Self::Appl {
-                        left: left.reduce().into(),
+                        // When reducing on the left of an `Appl`, we don't want to recur into and
+                        // lambdas, because they could be applied to something, so reducing inside
+                        // of them would break normal ordering.
+                        left: left.reduce_impl(false).into(),
                         right,
                     }
                     // It's important to reduce the whole thing again, in case the reduction turned
                     // left into a lambda.
-                    .reduce()
+                    .reduce_impl(reduce_in_lam)
                 }
             }
         }
@@ -172,7 +185,7 @@ impl Term {
                 // context so that parent calls don't inherit our binding.
                 ctx.push((param1, param2));
                 let out = rule1.alpha_equiv_impl(rule2, ctx);
-                let _ = ctx.pop();
+                ctx.pop();
                 out
             }
 
@@ -305,6 +318,8 @@ mod tests {
             nested_sub: "(fn f => fn a => f) x", "fn a => x"
             order_matters: "(fn f => fn a => f (f a)) (fn q => r) a b", "r b"
             many_renames: "(fn f => fn y => fn x => x (y f)) y x f", "f (x y)"
+            lazy_eval: "(fn t => fn e => t) x ((fn x => x x)(fn x => x x))", "x"
+            y_combinator: "(fn g => ((fn y => g (y y)) (fn y => g (y y)))) (fn f => fn x => x q (f (fn t => fn e => t))) (fn t => fn e => e)", "q"
         }
     }
 

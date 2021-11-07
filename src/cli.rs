@@ -17,14 +17,12 @@ impl Term {
     /// Guess the value of the term.
     ///
     /// Currently, supports Church numerals and booleans.
-    fn guess_val(self) -> Matches {
+    fn guess_val(&self) -> Matches {
         vec![
-            (&self)
-                .try_into()
+            self.try_into()
                 .ok()
                 .map(|n: usize| format!("Church numeral {}", n).green()),
-            (&self)
-                .try_into()
+            self.try_into()
                 .ok()
                 .map(|b: bool| format!("boolean {}", b).green()),
         ]

@@ -1,0 +1,49 @@
+# basic church defns
+0 := fn f => fn a => a;
+succ := fn n => fn f => fn a => f (n f a);
+1 := succ 0;
+
+# booleans
+true := fn t => fn e => t;
+false := fn t => fn e => e;
+isZero := fn n => n (fn x => false) true;
+
+# pairs
+pair := fn l => fn r => fn s => s l r;
+first := fn p => p true;
+second := fn p => p false;
+
+# succ
+# cache the previous result in second p, return it at the end
+predStep := fn p => pair (succ (first p)) (first p);
+pred := fn n => second (n predStep (pair 0 0));
+
+# add
+add := fn n => fn m => n succ m;
+
+# recursion
+yc := fn f => (fn x => f (x x)) (fn x => f (x x));
+
+# our fib sequence is 0-indexed and starts from 1
+fibtemp := fn f => fn n => (isZero n) 0
+		((isZero (pred n))
+	 	  1
+		  (add
+		    # whoever asked for efficiency
+		    # fibrec 8 takes 3 min on my machine
+		    (f (pred n))
+		    (f (pred (pred n)))
+		  )
+		);
+fibrec := yc fibtemp;
+
+# numbers for testing
+2 := succ 1;
+3 := succ 2;
+4 := succ 3;
+5 := succ 4;
+6 := succ 5;
+7 := succ 6;
+8 := succ 7;
+
+fibrec 8

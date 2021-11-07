@@ -1,0 +1,16 @@
+# the simplest y-combinator-using function I could think of
+# func should return constant "q" when called with a bool
+# duplicate of the y_combinator unit test of reduce
+
+# booleans
+true := fn t => fn e => t;
+false := fn t => fn e => e;
+
+# the y combinator
+yc := fn g => ((fn y => g (y y)) (fn y => g (y y)));
+
+helper := fn f => fn x => x q (f true);
+func := yc helper;
+
+# main
+func false

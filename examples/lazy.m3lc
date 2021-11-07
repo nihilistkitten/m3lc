@@ -1,0 +1,4 @@
+# if eager evaluation, this would loop infinitely
+# duplicate of the lazy_eval unit test of reduce
+true := fn t => fn e => t;
+true x ((fn x => x x)(fn x => x x))

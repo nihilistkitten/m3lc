@@ -5,6 +5,9 @@ succ := fn n => fn f => fn a => f (n f a);
 # booleans
 true := fn t => fn e => t;
 false := fn t => fn e => e;
+isZero := fn n => n (fn x => false) true;
+and := fn a => fn b => a b false;
+not := fn c => fn t => fn e => c e t;
 
 # pairs
 pair := fn l => fn r => fn s => s l r;
@@ -16,6 +19,16 @@ second := fn p => p false;
 predStep := fn p => pair (succ (first p)) (first p);
 pred := fn n => second (n predStep (pair 0 0));
 
+# minus
+# pred 0 = 0, so we don't need special handling
+minus := fn n => fn m => m pred n;
+
+# less
+# probably an easier iterative solution, but this felt cleaner
+less := fn n => fn m => and
+		(isZero (minus n m))
+		(not (isZero (minus m n)));
+
 # numbers for testing
 1 := succ 0;
 2 := succ 1;
@@ -23,4 +36,4 @@ pred := fn n => second (n predStep (pair 0 0));
 4 := succ 3;
 
 # main
-pred 4
+less 2 4

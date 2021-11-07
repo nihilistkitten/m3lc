@@ -16,6 +16,10 @@ second := fn p => p false;
 predStep := fn p => pair (succ (first p)) (first p);
 pred := fn n => second (n predStep (pair 0 0));
 
+# minus
+# pred 0 = 0, so we don't need special handling
+minus := fn n => fn m => m pred n;
+
 # numbers for testing
 1 := succ 0;
 2 := succ 1;
@@ -23,4 +27,4 @@ pred := fn n => second (n predStep (pair 0 0));
 4 := succ 3;
 
 # main
-pred 4
+minus 4 2
