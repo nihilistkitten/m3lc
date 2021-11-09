@@ -15,6 +15,10 @@ struct Opt {
     /// Print each beta-reduction step
     #[structopt(short, long)]
     verbose: bool,
+
+    /// Attempt to determine the output value. Supports ints and bools.
+    #[structopt(short, long)]
+    infer_val: bool,
 }
 
 impl Term {
@@ -82,10 +86,12 @@ pub fn run() -> ParserResult<()> {
     let output = input.unroll().reduce(opt.verbose);
     println!("{}", &output);
 
-    let guessed_value = output.guess_val();
-    if !guessed_value.is_empty() {
-        println!();
-        println!("Alpha-equivalent to: {}", guessed_value);
+    if opt.infer_val {
+        let guessed_value = output.guess_val();
+        if !guessed_value.is_empty() {
+            println!();
+            println!("Alpha-equivalent to: {}", guessed_value);
+        }
     }
     Ok(())
 }

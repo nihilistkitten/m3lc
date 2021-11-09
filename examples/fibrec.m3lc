@@ -40,10 +40,5 @@ fibrec := yc fibtemp;
 3 := succ 2;
 4 := succ 3;
 5 := succ 4;
-6 := succ 5;
-7 := succ 6;
-8 := succ 7;
-9 := succ 8;
-10 := succ 9;
 
-fibrec 4
+fibrec 5
