@@ -50,7 +50,7 @@ impl Term {
             left: SUCC.clone().into(),
             right: self.into(),
         }
-        .reduce()
+        .reduce(false)
     }
 }
 

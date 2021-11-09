@@ -78,7 +78,7 @@ impl Term {
             .into(),
             right: other.into(),
         }
-        .reduce()
+        .reduce(false)
     }
 }
 

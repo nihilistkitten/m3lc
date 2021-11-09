@@ -9,8 +9,11 @@ impl Term {
     /// # Safety
     /// The halting problem is a thing. Ergo, this can cause unhandled infinite regress.
     #[must_use]
-    pub fn reduce(mut self) -> Self {
+    pub fn reduce(mut self, verbose: bool) -> Self {
         while !self.is_irreducible() {
+            if verbose {
+                println!("{}", self);
+            }
             self.reduction_step();
         }
         self
@@ -248,7 +251,7 @@ mod tests {
         #[test]
         /// Test reducing a var.
         fn var() {
-            assert_eq!(Var("x".into()).reduce(), "x".into());
+            assert_eq!(Var("x".into()).reduce(false), "x".into());
         }
 
         #[test]
@@ -263,7 +266,7 @@ mod tests {
                 right: "z".into(),
             };
 
-            assert_eq!(input.reduce(), "z".into());
+            assert_eq!(input.reduce(false), "z".into());
         }
 
         #[test]
@@ -278,7 +281,7 @@ mod tests {
                 right: "z".into(),
             };
 
-            assert_eq!(input.reduce(), "y".into());
+            assert_eq!(input.reduce(false), "y".into());
         }
 
         #[test]
@@ -300,7 +303,7 @@ mod tests {
                 .into(),
                 right: "a".into(),
             };
-            assert_eq!(input.reduce(), "a".into());
+            assert_eq!(input.reduce(false), "a".into());
         }
 
         // takes a name, a string representing the term to be reduced, and a string representing
@@ -311,7 +314,7 @@ mod tests {
             fn $name() -> ParserResult<()> {
                 // This is not a proper unit test because of the dependency on `to_term`, but it
                 // makes tests _much_ easier to develop.
-                assert!(to_term($input)?.reduce().alpha_equiv(&to_term($expected)?));
+                assert!(to_term($input)?.reduce(false).alpha_equiv(&to_term($expected)?));
                 Ok(())
             }
             )*

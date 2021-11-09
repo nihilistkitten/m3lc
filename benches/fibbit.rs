@@ -303,7 +303,7 @@ fn benchmark(c: &mut Criterion) {
                 }
                 .into(),
             }
-            .reduce()
+            .reduce(false)
         })
     });
 }

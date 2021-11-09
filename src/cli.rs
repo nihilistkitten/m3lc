@@ -11,6 +11,10 @@ use structopt::StructOpt;
 struct Opt {
     /// Input file
     file: String,
+
+    /// Print each beta-reduction step
+    #[structopt(short, long)]
+    verbose: bool,
 }
 
 impl Term {
@@ -76,7 +80,7 @@ pub fn run() -> ParserResult<()> {
     let contents = fs::read_to_string(&opt.file).expect("Unable to open file");
     let input = to_file(&contents)?;
 
-    let output = input.unroll().reduce();
+    let output = input.unroll().reduce(opt.verbose);
     println!("{}", &output);
 
     let guessed_value = output.guess_val();
