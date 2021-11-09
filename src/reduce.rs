@@ -11,19 +11,29 @@ impl Term {
     #[must_use]
     pub fn reduce(mut self) -> Self {
         while !self.is_irreducible() {
-            self.reduce_step();
+            self.reduction_step();
         }
         self
     }
 
     /// Given an appl with a lam on the left, apply the left to the right.
     fn apply(&mut self) {
-        // put a placeholder into self so we get ownership of the dereferenced value
+        // Put a placeholder into self so we get ownership of the dereferenced value. Note that
+        // empty strings don't allocate.
         let to_apply = mem::replace(self, Self::Var("".into()));
 
+        // We have to traverse down the struct to get to the lambda on the left. This is guaranteed
+        // to be ok, because `apply` can only be called when we've matched exactly this pattern
+        // already.
         if let Self::Appl { left, right } = to_apply {
+            // box pattern matching isn't on stable :((
             if let Self::Lam { param, mut rule } = *left {
                 (*rule).subst(&param, &*right);
+                // Now we can write "rule" into the memory of "self" (currently occupied by the
+                // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would break
+                // borrow rules, because it would require a mutable reference to `self` and a
+                // reference to `right` (which `rule` depends on). So we'd either have to clone `right`
+                // or clone `rule`.
                 *self = *rule;
             } else {
                 unreachable!("apply only called with appl with lam on left");
@@ -33,68 +43,30 @@ impl Term {
         }
     }
 
-    fn reduce_step(&mut self) {
-        match self {
-            Self::Var(_) => (),
-            Self::Lam { rule, .. } => rule.reduce_step(),
-            Self::Appl { left, right } => {
-                if let Self::Lam { .. } = left.as_mut() {
-                    self.apply();
-                } else if left.is_irreducible() {
-                    right.reduce_step();
-                } else {
-                    left.reduce_step();
-                }
-            }
-        }
-    }
-
-    /* fn reduce_impl(self, reduce_in_lam: bool) -> Self {
+    fn reduction_step(&mut self) {
         match self {
             // Vars are irreducible.
-            Self::Var(_) => self,
+            Self::Var(_) => (),
 
             //           t ~~> t'
             // ----------------------------
             // (fn x => t) ~~> (fn x => t')
-            Self::Lam { param, rule } => {
-                if reduce_in_lam {
-                    Self::Lam {
-                        param,
-                        rule: rule.reduce_impl(reduce_in_lam).into(),
-                    }
-                } else {
-                    Self::Lam { param, rule }
-                }
-            }
-
-            // Handle appl.
+            Self::Lam { rule, .. } => rule.reduction_step(),
             Self::Appl { left, right } => {
-                if let Self::Lam { param, rule } = *left {
+                if let Self::Lam { .. } = left.as_mut() {
                     // -------------------------
                     // (fn x => t) s ~~> [s/x] t
-                    rule.subst(&param, *right).reduce_impl(reduce_in_lam)
-                } else if left.is_irreducible() {
-                    // Only reduce the right if the left is already reduced.
                     //
+                    // We have a special method here, `apply`, which does some performance hacks on
+                    // top of `subst` to avoid unnecessary clones. That's documented in the body of
+                    // that method.
+                    self.apply();
+                } else if left.is_irreducible() {
                     // t1 irr    t2 ~~> t2'
                     // ----------------------
                     //  (t1 t2) ~~> (t1 t2')
-                    //
-                    // We need a special case for the left being irreducible, instead of just
-                    // reducing on the left, then outside (in case a lambda was created), then the
-                    // right, because after reducing an outer lambda created by reducing on the
-                    // left, we could need to again reduce on the left, because that outer
-                    // reduction could have created a reducible left side.
-                    Self::Appl {
-                        left,
-                        right: right.reduce_impl(reduce_in_lam).into(),
-                    }
+                    right.reduction_step();
                 } else {
-                    // Note that here left is not a Var, because it's reducible, and not a Lam,
-                    // because that was checked earlier. Therefore left is (t1 t2) and reducible,
-                    // and so one of two rules applies:
-                    //
                     //          t1 ~~> t1'
                     // ------------------------------
                     // ((t1 t2) t3) ~~> ((t1' t2) t3)
@@ -102,22 +74,11 @@ impl Term {
                     //     t1 irr      t2 ~~> t2'
                     // ------------------------------
                     // ((t1 t2) t3) ~~> ((t1 t2') t3)
-                    //
-                    // Either way, we can implement the reduction by recurring to the left.
-                    Self::Appl {
-                        // When reducing on the left of an `Appl`, we don't want to recur into and
-                        // lambdas, because they could be applied to something, so reducing inside
-                        // of them would break normal ordering.
-                        left: left.reduce_impl(false).into(),
-                        right,
-                    }
-                    // It's important to reduce the whole thing again, in case the reduction turned
-                    // left into a lambda.
-                    .reduce_impl(reduce_in_lam)
+                    left.reduction_step();
                 }
             }
         }
-    } */
+    }
 
     /// Check whether the term is beta-reducible.
     fn is_irreducible(&self) -> bool {
@@ -162,6 +123,7 @@ impl Term {
     {
         match self {
             // [s/x] x := s
+            // Only clone we have to do in this whole process is here.
             Self::Var(ref s) if s == replace => *self = with.clone().into(),
 
             // [s/x] y := y
