@@ -46,4 +46,4 @@ fibrec := yc fibtemp;
 9 := succ 8;
 10 := succ 9;
 
-fibrec 10
+fibrec 4

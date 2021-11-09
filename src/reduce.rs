@@ -18,8 +18,9 @@ impl Term {
 
     fn reduction_step(&mut self) {
         match self {
-            // Vars are irreducible.
-            Self::Var(_) => (),
+            // If we get here, then there's a bug and reduce will loop infinitely, so better to
+            // fail fast.
+            Self::Var(_) => unreachable!("vars are irreducible"),
 
             //           t ~~> t'
             // ----------------------------
@@ -58,7 +59,7 @@ impl Term {
     fn apply(&mut self) {
         // Put a placeholder into self so we get ownership of the dereferenced value. Note that
         // empty strings don't allocate.
-        let to_apply = mem::replace(self, Self::Var("".into()));
+        let to_apply = mem::replace(self, Self::Var(String::new()));
 
         // We have to traverse down the struct to get to the lambda on the left. This is guaranteed
         // to be ok, because `apply` can only be called when we've matched exactly this pattern
