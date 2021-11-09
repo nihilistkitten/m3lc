@@ -25,13 +25,12 @@ impl Term {
         vec![
             self.try_into()
                 .ok()
-                .map(|n: usize| format!("Church numeral {}", n).green()),
-            self.try_into()
-                .ok()
-                .map(|b: bool| format!("boolean {}", b).green()),
+                .map(|n: usize| format!("Church numeral {}", n)),
+            self.try_into().ok().map(|b: bool| format!("boolean {}", b)),
         ]
         .into_iter()
         .flatten()
+        .map(|s| s.green())
         .collect()
     }
 }

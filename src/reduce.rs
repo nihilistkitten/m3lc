@@ -78,6 +78,7 @@ impl Term {
                 // `unsafe`, we'd either have to clone `right` or clone `rule`.
                 *self = *rule;
             } else {
+                // If this branching is a bottleneck later, consider `unreachable_unchecked`.
                 unreachable!("apply only called with appl with lam on left");
             }
         } else {
