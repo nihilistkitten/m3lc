@@ -25,6 +25,7 @@ impl Term {
             // ----------------------------
             // (fn x => t) ~~> (fn x => t')
             Self::Lam { rule, .. } => rule.reduction_step(),
+
             Self::Appl { left, right } => {
                 if let Self::Lam { .. } = left.as_mut() {
                     // -------------------------
@@ -67,8 +68,8 @@ impl Term {
             if let Self::Lam { param, mut rule } = *left {
                 (*rule).subst(&param, &*right);
                 // Now we can write `rule` into the memory of `self` (currently occupied by the
-                // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would break
-                // borrow rules, because it would require a mutable reference to `self` and a
+                // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would
+                // break borrow rules, because it would require a mutable reference to `self` and a
                 // reference to `right` (which `rule` depends on). So unless we wanted to use
                 // `unsafe`, we'd either have to clone `right` or clone `rule`.
                 *self = *rule;
@@ -320,7 +321,8 @@ mod tests {
             order_matters: "(fn f => fn a => f (f a)) (fn q => r) a b", "r b"
             many_renames: "(fn f => fn y => fn x => x (y f)) y x f", "f (x y)"
             lazy_eval: "(fn t => fn e => t) x ((fn x => x x)(fn x => x x))", "x"
-            y_combinator: "(fn g => ((fn y => g (y y)) (fn y => g (y y)))) (fn f => fn x => x q (f (fn t => fn e => t))) (fn t => fn e => e)", "q"
+            y_combinator: "(fn g => ((fn y => g (y y)) (fn y => g (y y))))
+                (fn f => fn x => x q (f (fn t => fn e => t))) (fn t => fn e => e)", "q"
         }
     }
 
