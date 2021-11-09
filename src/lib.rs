@@ -1,3 +1,4 @@
+#![feature(box_patterns, test)]
 mod cli;
 mod data;
 mod grammar;

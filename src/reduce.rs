@@ -67,20 +67,18 @@ impl Term {
         // We have to traverse down the struct to get to the lambda on the left. This is guaranteed
         // to be ok, because `apply` can only be called when we've matched exactly this pattern
         // already.
-        if let Self::Appl { left, right } = to_apply {
-            // box pattern matching isn't on stable :((
-            if let Self::Lam { param, mut rule } = *left {
-                (*rule).subst(&param, &*right);
-                // Now we can write `rule` into the memory of `self` (currently occupied by the
-                // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would
-                // break borrow rules, because it would require a mutable reference to `self` and a
-                // reference to `right` (which `rule` depends on). So unless we wanted to use
-                // `unsafe`, we'd either have to clone `right` or clone `rule`.
-                *self = *rule;
-            } else {
-                // If this branching is a bottleneck later, consider `unreachable_unchecked`.
-                unreachable!("apply only called with appl with lam on left");
-            }
+        if let Self::Appl {
+            left: box Self::Lam { param, mut rule },
+            right,
+        } = to_apply
+        {
+            (*rule).subst(&param, &*right);
+            // Now we can write `rule` into the memory of `self` (currently occupied by the
+            // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would
+            // break borrow rules, because it would require a mutable reference to `self` and a
+            // reference to `right` (which `rule` depends on). So unless we wanted to use
+            // `unsafe`, we'd either have to clone `right` or clone `rule`.
+            *self = *rule;
         } else {
             unreachable!("apply only called with appl with lam on left");
         }
@@ -319,6 +317,19 @@ mod tests {
                 Ok(())
             }
             )*
+
+            mod bench {
+                use super::to_term;
+
+                extern crate test;
+                use test::Bencher;
+                $(
+                #[bench]
+                fn $name(b: &mut Bencher) {
+                    b.iter(|| to_term($input).unwrap().reduce(false));
+                }
+                )*
+            }
         }}
 
         beta_reduction_tests! {
@@ -328,6 +339,7 @@ mod tests {
             lazy_eval: "(fn t => fn e => t) x ((fn x => x x)(fn x => x x))", "x"
             y_combinator: "(fn g => ((fn y => g (y y)) (fn y => g (y y))))
                 (fn f => fn x => x q (f (fn t => fn e => t))) (fn t => fn e => e)", "q"
+            fibbit: "(fn n => (fn p => p (fn t => fn e => t)) (n (fn p => (fn a => fn b => fn s => s a b) ((fn p => p (fn t => fn e => e)) p) ((fn m => fn n => m (fn n => fn f => fn x => f (n f x)) n) ((fn p => p (fn t => fn e => t)) p) ((fn p => p (fn t => fn e => e)) p))) ((fn a => fn b => fn s => s a b) (fn f => fn x => x) ((fn n => fn f => fn x => f (n f x)) (fn f => fn x => x))))) (fn f => fn x => f (f (f (f (f (f (f (f (f (f x))))))))))", "fn f => fn x => f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f (f x))))))))))))))))))))))))))))))))))))))))))))))))))))))"
         }
     }
 
