@@ -1,5 +1,5 @@
 //! Normal-order beta reduction of lambda terms.
-use std::cell::RefCell;
+use std::{cell::RefCell, mem};
 
 use crate::grammar::Term;
 
@@ -9,11 +9,47 @@ impl Term {
     /// # Safety
     /// The halting problem is a thing. Ergo, this can cause unhandled infinite regress.
     #[must_use]
-    pub fn reduce(self) -> Self {
-        self.reduce_impl(true)
+    pub fn reduce(mut self) -> Self {
+        while !self.is_irreducible() {
+            self.reduce_step();
+        }
+        self
     }
 
-    fn reduce_impl(self, reduce_in_lam: bool) -> Self {
+    /// Given an appl with a lam on the left, apply the left to the right.
+    fn apply(&mut self) {
+        // put a placeholder into self so we get ownership of the dereferenced value
+        let to_apply = mem::replace(self, Self::Var("".into()));
+
+        if let Self::Appl { left, right } = to_apply {
+            if let Self::Lam { param, mut rule } = *left {
+                (*rule).subst(&param, &*right);
+                *self = *rule;
+            } else {
+                unreachable!("apply only called with appl with lam on left");
+            }
+        } else {
+            unreachable!("apply only called with appl with lam on left");
+        }
+    }
+
+    fn reduce_step(&mut self) {
+        match self {
+            Self::Var(_) => (),
+            Self::Lam { rule, .. } => rule.reduce_step(),
+            Self::Appl { left, right } => {
+                if let Self::Lam { .. } = left.as_mut() {
+                    self.apply();
+                } else if left.is_irreducible() {
+                    right.reduce_step();
+                } else {
+                    left.reduce_step();
+                }
+            }
+        }
+    }
+
+    /* fn reduce_impl(self, reduce_in_lam: bool) -> Self {
         match self {
             // Vars are irreducible.
             Self::Var(_) => self,
@@ -81,7 +117,7 @@ impl Term {
                 }
             }
         }
-    }
+    } */
 
     /// Check whether the term is beta-reducible.
     fn is_irreducible(&self) -> bool {
@@ -116,34 +152,37 @@ impl Term {
     }
 
     /// Perform substitution of `replace` for `with` in `self`.
-    fn subst(self, replace: &str, with: Self) -> Self {
+    fn subst<T>(&mut self, replace: &str, with: &T)
+    where
+        // Into<Self> so we can pass &strs, so we don't have to clone new_var until needed.
+        // Refs so we can wait to clone until we need to. (Aka, this is a polluted type signature
+        // in exchange for a ~10x speedup because of the avoided clones. Previously, we had to
+        // clone every time we recursed into an `Appl`.)
+        T: Into<Self> + Clone,
+    {
         match self {
             // [s/x] x := s
-            Self::Var(ref s) if s == replace => with,
+            Self::Var(ref s) if s == replace => *self = with.clone().into(),
 
             // [s/x] y := y
-            Self::Var(_) => self,
+            Self::Var(_) => (),
 
             // [s/x] (fn x => t) := (fn x => t)
-            Self::Lam { ref param, .. } if param == replace => self,
+            Self::Lam { ref param, .. } if param == replace => (),
 
             // [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
             Self::Lam { param, rule } => {
-                let new_var = get_fresh_ident(&param);
-                Self::Lam {
-                    param: new_var.clone(), // we need new_var for the param and the recursive subst
-                    rule: rule
-                        .subst(&param, new_var.into())
-                        .subst(replace, with)
-                        .into(),
-                }
+                let new_var = get_fresh_ident(param);
+                rule.subst(param, &new_var);
+                rule.subst(replace, with);
+                *param = new_var; // we need new_var for the param and the recursive subst
             }
 
             // [s/x] (t1 t2) := ([s/x] t1) ([s/x] t2)
-            Self::Appl { left, right } => Self::Appl {
-                left: left.subst(replace, with.clone()).into(),
-                right: right.subst(replace, with).into(),
-            },
+            Self::Appl { left, right } => {
+                left.subst(replace, with);
+                right.subst(replace, with);
+            }
         }
     }
 
@@ -554,12 +593,12 @@ mod tests {
                 param: "z".into(),
                 rule: "x".into(),
             };
-            let term = Lam {
+            let mut term = Lam {
                 param: "x".into(),
                 rule: "y".into(),
             };
 
-            let out = term.subst("y", init);
+            term.subst("y", &init);
             let expected = Lam {
                 param: "z".into(),
                 rule: Lam {
@@ -569,7 +608,7 @@ mod tests {
                 .into(),
             };
 
-            assert!(out.alpha_equiv(&expected));
+            assert!(term.alpha_equiv(&expected));
         }
 
         #[test]
@@ -583,7 +622,8 @@ mod tests {
                 rule: "y".into(),
             };
 
-            let out = term.clone().subst("z", init); // z not in FV(term), so no sub necessary
+            let mut out = term.clone();
+            out.subst("z", &init); // z not in FV(term), so no sub necessary
             assert!(term.alpha_equiv(&out));
         }
     }

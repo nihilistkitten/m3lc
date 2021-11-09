@@ -29,8 +29,6 @@ fibtemp := fn f => fn n => (isZero n) 0
 		((isZero (pred n))
 	 	  1
 		  (add
-		    # whoever asked for efficiency
-		    # fibrec 8 takes 3 min on my machine
 		    (f (pred n))
 		    (f (pred (pred n)))
 		  )
@@ -45,5 +43,7 @@ fibrec := yc fibtemp;
 6 := succ 5;
 7 := succ 6;
 8 := succ 7;
+9 := succ 8;
+10 := succ 9;
 
-fibrec 8
+fibrec 10

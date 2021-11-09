@@ -11,3 +11,10 @@ lazy_static = "*"
 pest = "*"
 pest_consume = "*"
 structopt = "*"
+
+[dev-dependencies]
+criterion = "*"
+
+[[bench]]
+name = "fibbit"
+harness = false
