@@ -16,33 +16,6 @@ impl Term {
         self
     }
 
-    /// Given an appl with a lam on the left, apply the left to the right.
-    fn apply(&mut self) {
-        // Put a placeholder into self so we get ownership of the dereferenced value. Note that
-        // empty strings don't allocate.
-        let to_apply = mem::replace(self, Self::Var("".into()));
-
-        // We have to traverse down the struct to get to the lambda on the left. This is guaranteed
-        // to be ok, because `apply` can only be called when we've matched exactly this pattern
-        // already.
-        if let Self::Appl { left, right } = to_apply {
-            // box pattern matching isn't on stable :((
-            if let Self::Lam { param, mut rule } = *left {
-                (*rule).subst(&param, &*right);
-                // Now we can write "rule" into the memory of "self" (currently occupied by the
-                // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would break
-                // borrow rules, because it would require a mutable reference to `self` and a
-                // reference to `right` (which `rule` depends on). So we'd either have to clone `right`
-                // or clone `rule`.
-                *self = *rule;
-            } else {
-                unreachable!("apply only called with appl with lam on left");
-            }
-        } else {
-            unreachable!("apply only called with appl with lam on left");
-        }
-    }
-
     fn reduction_step(&mut self) {
         match self {
             // Vars are irreducible.
@@ -77,6 +50,33 @@ impl Term {
                     left.reduction_step();
                 }
             }
+        }
+    }
+
+    /// Given an appl with a lam on the left, apply the left to the right.
+    fn apply(&mut self) {
+        // Put a placeholder into self so we get ownership of the dereferenced value. Note that
+        // empty strings don't allocate.
+        let to_apply = mem::replace(self, Self::Var("".into()));
+
+        // We have to traverse down the struct to get to the lambda on the left. This is guaranteed
+        // to be ok, because `apply` can only be called when we've matched exactly this pattern
+        // already.
+        if let Self::Appl { left, right } = to_apply {
+            // box pattern matching isn't on stable :((
+            if let Self::Lam { param, mut rule } = *left {
+                (*rule).subst(&param, &*right);
+                // Now we can write `rule` into the memory of `self` (currently occupied by the
+                // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would break
+                // borrow rules, because it would require a mutable reference to `self` and a
+                // reference to `right` (which `rule` depends on). So unless we wanted to use
+                // `unsafe`, we'd either have to clone `right` or clone `rule`.
+                *self = *rule;
+            } else {
+                unreachable!("apply only called with appl with lam on left");
+            }
+        } else {
+            unreachable!("apply only called with appl with lam on left");
         }
     }
 
