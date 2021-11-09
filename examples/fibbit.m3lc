@@ -25,5 +25,7 @@ fibbit := fn n => second (n fibStep (pair 1 0));
 4 := succ 3;
 5 := succ 4;
 
+10 := add 5 5;
+
 # main
-fibbit (add 5 5)
+fibbit 10

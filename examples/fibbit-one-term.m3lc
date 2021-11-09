@@ -1,0 +1,3 @@
+# credit to zach for writing this term via manual substitution, it computes fib(10)
+
+(fn n => (fn p => p (fn t => fn e => t)) (n (fn p => (fn a => fn b => fn s => s a b) ((fn p => p (fn t => fn e => e)) p) ((fn m => fn n => m (fn n => fn f => fn x => f (n f x)) n) ((fn p => p (fn t => fn e => t)) p) ((fn p => p (fn t => fn e => e)) p))) ((fn a => fn b => fn s => s a b) (fn f => fn x => x) ((fn n => fn f => fn x => f (n f x)) (fn f => fn x => x))))) (fn f => fn x => f (f (f (f (f (f (f (f (f (f x))))))))))
