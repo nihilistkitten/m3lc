@@ -45,6 +45,10 @@ impl Term {
                     //  (t1 t2) ~~> (t1 t2')
                     right.reduction_step();
                 } else {
+                    // Left is not a lambda, because that was checked earlier, and not a var,
+                    // because it's reducible. Therefore it's an appl, and one of these rules
+                    // applies:
+                    //
                     //          t1 ~~> t1'
                     // ------------------------------
                     // ((t1 t2) t3) ~~> ((t1' t2) t3)
