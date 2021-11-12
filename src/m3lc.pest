@@ -15,7 +15,7 @@ ident = @{ !reserved ~ char+ }
 appl = { term ~ (juxa ~ term)* }  		   
 juxa = { "" } // empty operator rule to meet pest's precedence climbing api
 term = { lam | var | "(" ~ appl ~ ")" }
-var = { ident } // we don't just use `ident` here so that `lam` doesnt' need an extra `Box`.
+var = { ident }
 lam = { "fn" ~ ident ~ "=>" ~ appl }
 
 defn = { ident ~ ":=" ~ appl }
