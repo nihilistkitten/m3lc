@@ -90,7 +90,11 @@ assignment; I figured I'd document them here:
    alpha-equivalence of the final output to boolean and church numeral types.
    This work is handled by the `guess_val` method in `cli.rs`, which relies on
    the types defined in the `data/` source directory.
-3. Performance: originally, I implemented this very lazily without paying any
+3. Syntax highlighting: I like looking at pretty colors, so I wrote a super
+   simple [neo]vim syntax plugin. To enable it, copy or symlink `vim/` to
+   `${XDG_DATA_HOME:~/.local/share}/nvim/site/pack/m3lc/` for neovim or
+   `~/.vim/pack/m3lc/` for mainline vim.
+4. Performance: originally, I implemented this very lazily without paying any
    attention to performance (I was using Rust for its type system, not for
    performance). Then it turned out Ryan and Zach's javascript implementation
    was faster than my Rust implementation because I was just cloning everywhere
