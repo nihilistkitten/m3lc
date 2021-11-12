@@ -16,9 +16,9 @@ struct Opt {
     #[structopt(short, long)]
     verbose: bool,
 
-    /// Attempt to determine the output value. Supports ints and bools.
+    /// Don't attempt to determine the output value
     #[structopt(short, long)]
-    infer_val: bool,
+    no_inference: bool,
 }
 
 impl Term {
@@ -86,7 +86,7 @@ pub fn run() -> ParserResult<()> {
     let output = input.unroll().reduce(opt.verbose);
     println!("{}", &output);
 
-    if opt.infer_val {
+    if !opt.no_inference {
         let guessed_value = output.guess_val();
         if !guessed_value.is_empty() {
             println!();

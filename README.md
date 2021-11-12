@@ -5,7 +5,7 @@ comments in the relevant source files.
 
 ## TL;DR
 
-`cargo run --release --quiet -- -i examples/fibbit.m3lc`
+`cargo run --release --quiet -- examples/fibbit.m3lc`
 
 ## Cargo
 
@@ -86,7 +86,7 @@ assignment; I figured I'd document them here:
 
 1. Alpha-equivalence: as mentioned, this is useful for unit testing, but is
    also critical for #2.
-2. Term inference: if given the `-i` command-line flag, the CLI checks for
+2. Term inference: unless given the `-n` command-line flag, the CLI checks for
    alpha-equivalence of the final output to boolean and church numeral types.
    This work is handled by the `guess_val` method in `cli.rs`, which relies on
    the types defined in the `data/` source directory.
