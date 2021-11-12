@@ -68,17 +68,20 @@ impl Term {
         // to be ok, because `apply` can only be called when we've matched exactly this pattern
         // already.
         if let Self::Appl {
-            left: box Self::Lam { param, mut rule },
-            right,
+            left: box Self::Lam {
+                param,
+                box mut rule,
+            },
+            box right,
         } = to_apply
         {
-            (*rule).subst(&param, &*right);
+            rule.subst(&param, &right);
             // Now we can write `rule` into the memory of `self` (currently occupied by the
             // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would
             // break borrow rules, because it would require a mutable reference to `self` and a
             // reference to `right` (which `rule` depends on). So unless we wanted to use
             // `unsafe`, we'd either have to clone `right` or clone `rule`.
-            *self = *rule;
+            *self = rule;
         } else {
             unreachable!("apply only called with appl with lam on left");
         }
@@ -92,7 +95,7 @@ impl Term {
             Self::Var(_) => true,
 
             Self::Appl { left, right } => {
-                if let Self::Lam { .. } = left.as_ref() {
+                if let box Self::Lam { .. } = left {
                     // Lams applied to terms are always reducible.
                     false
                 } else {

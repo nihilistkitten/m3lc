@@ -65,8 +65,11 @@ impl Display for Term {
             // information and so `to_term(t.to_string())` always produces the original term.
             // But I haven't verified this formally or anything. My informal analysis is explained
             // in the comments below.
-            Self::Appl { left, right } => {
-                let left_fmt = if let Self::Lam { .. } = left.as_ref() {
+            Self::Appl {
+                box left,
+                box right,
+            } => {
+                let left_fmt = if let Self::Lam { .. } = left {
                     // parenthesize lambdas on the left: consider `(fn x => x) g` vs `fn x => x g`
                     format!("({})", left)
                 } else {
@@ -75,7 +78,7 @@ impl Display for Term {
                     // no need to parenthesize left-heavy appls because of associativity
                     left.to_string()
                 };
-                let right_fmt = if let Self::Var(_) = right.as_ref() {
+                let right_fmt = if let Self::Var(_) = right {
                     // no need to parenthesize vars, ever
                     right.to_string()
                 } else {

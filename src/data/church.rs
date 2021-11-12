@@ -84,10 +84,10 @@ impl TryFrom<&Term> for usize {
     type Error = NotChurchNum;
 
     fn try_from(term: &Term) -> Result<Self, Self::Error> {
-        if let Lam { param, rule } = term {
+        if let Lam { param, box rule } = term {
             let f = param; // the f in fn f => fn a => f (f (... a))
-            if let Lam { param, rule } = rule.as_ref() {
-                let mut curr = rule.as_ref(); // the current step in the iteration
+            if let Lam { param, box rule } = rule {
+                let mut curr = rule; // the current step in the iteration
                 let a = param; // the a in the above
 
                 // We're looking for a right-heavy binary tree of `Appl`s, where each leaf is a
@@ -96,9 +96,9 @@ impl TryFrom<&Term> for usize {
                 // stop hitting `Appl`s, we should hit `Var(a)`. All the while, we keep a count of
                 // the number of `f`s that we've hit.
                 let mut n = 0;
-                while let Appl { left, right } = curr {
+                while let Appl { box left, right } = curr {
                     // check that the left is a Var(f)
-                    if matches!(left.as_ref(), Var(x) if x == f) {
+                    if matches!(left, Var(x) if x == f) {
                         n += 1;
                         curr = right;
                     } else {
