@@ -24,7 +24,7 @@ add := fn n => fn m => n succ m;
 # recursion
 yc := fn f => (fn x => f (x x)) (fn x => f (x x));
 
-# our fib sequence is 0-indexed and starts from 1
+# our fib sequence is 0-indexed and starts from 0
 fibtemp := fn f => fn n => (isZero n) 0
 		((isZero (pred n))
 	 	  1
