@@ -49,7 +49,7 @@ impl M3LCParser {
     /// lam = { "fn" ~ ident ~ "=>" ~ appl }
     fn lam(input: Node) -> ParserResult<Term> {
         Ok(match_nodes!(input.into_children();
-            [ident(param), appl(rule)] => Lam{ param, rule: rule.into() },
+            [ident(param), appl(rule)] => Lam{ param, rule: box rule },
         ))
     }
 
@@ -67,8 +67,8 @@ impl M3LCParser {
     )] // these lints get confused by the macro
     fn appl(left: Term, op: Node, right: Term) -> ParserResult<Term> {
         Ok(Appl {
-            left: left.into(),
-            right: right.into(),
+            left: box left,
+            right: box right,
         })
     }
 

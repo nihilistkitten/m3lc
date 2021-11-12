@@ -36,7 +36,7 @@ impl From<String> for Term {
 
 impl From<String> for Box<Term> {
     fn from(s: String) -> Self {
-        Self::new(s.into())
+        box s.into()
     }
 }
 
@@ -50,7 +50,7 @@ impl From<&str> for Box<Term> {
     fn from(s: &str) -> Self {
         // Type inference is not good enough to chain two intos here; it in particular can't get
         // that `Term` is the intermediate type.
-        Self::new(s.into())
+        box s.into()
     }
 }
 

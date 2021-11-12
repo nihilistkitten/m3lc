@@ -31,7 +31,7 @@ impl Term {
             Self::Lam { rule, .. } => rule.reduction_step(),
 
             Self::Appl { left, right } => {
-                if let Self::Lam { .. } = left.as_mut() {
+                if let box Self::Lam { .. } = left {
                     // -------------------------
                     // (fn x => t) s ~~> [s/x] t
                     //
@@ -62,7 +62,7 @@ impl Term {
     fn apply(&mut self) {
         // Put a placeholder into self so we get ownership of the dereferenced value. Note that
         // empty strings don't allocate.
-        let to_apply = mem::replace(self, Self::Var(String::new()));
+        let self_owned = mem::replace(self, Self::Var(String::new()));
 
         // We have to traverse down the struct to get to the lambda on the left. This is guaranteed
         // to be ok, because `apply` can only be called when we've matched exactly this pattern
@@ -73,9 +73,10 @@ impl Term {
                 box mut rule,
             },
             box right,
-        } = to_apply
+        } = self_owned
         {
             rule.subst(&param, &right);
+
             // Now we can write `rule` into the memory of `self` (currently occupied by the
             // placeholder `Var("")`). If we hadn't done the `mem::replace" trick, this would
             // break borrow rules, because it would require a mutable reference to `self` and a
