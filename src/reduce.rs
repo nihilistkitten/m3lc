@@ -131,13 +131,13 @@ impl Term {
         match self {
             // [s/x] x := s
             // Only clone we have to do in this whole process is here.
-            Self::Var(ref s) if s == replace => *self = with.clone().into(),
+            Self::Var(s) if s == replace => *self = with.clone().into(),
 
             // [s/x] y := y
             Self::Var(_) => (),
 
             // [s/x] (fn x => t) := (fn x => t)
-            Self::Lam { ref param, .. } if param == replace => (),
+            Self::Lam { param, .. } if param == replace => (),
 
             // [s/x] (fn y => t) := (fn z => [s/x] ([z/y] t)) for fresh z
             Self::Lam { param, rule } => {
