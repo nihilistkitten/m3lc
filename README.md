@@ -7,6 +7,12 @@ comments in the relevant source files.
 
 `cargo run --release --quiet -- examples/fibbit.m3lc`
 
+## The Language
+
+A `m3lc` file consists of a series of definitions followed by a main. A definition is a name, followed by `:=`, followed by a term, followed by a `;`. A main is either a definition whose name is `main`, or a term (with no closing `;`). A term is a lambda calculus term with function abstraction `fn x => t` and juxtaposition application `x y`.
+
+For the formal grammar, see `src/m3lc.pest`.
+
 ## Cargo
 
 As promised, here's a whirlwind tour through running and building Rust code
