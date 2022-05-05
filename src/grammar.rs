@@ -171,18 +171,18 @@ impl File {
     /// (fn foo => (fn bar => term3) term2) term1
     /// ```
     #[must_use]
-    pub fn unroll(mut self) -> Term {
-        for defn in self.defns.into_iter().rev() {
-            self.main = Term::Appl {
+    pub fn unroll(self) -> Term {
+        self.defns
+            .into_iter()
+            .rev()
+            .fold(self.main, |main, defn| Term::Appl {
                 left: Term::Lam {
                     param: defn.name,
-                    rule: self.main.into(),
+                    rule: main.into(),
                 }
                 .into(),
                 right: defn.term.into(),
-            }
-        }
-        self.main
+            })
     }
 }
 
